@@ -1,0 +1,662 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { MySQLAdapter } from '../adapter/mysql-adapter';
+import { 
+  HealthChecker, 
+  MetricsCollector,
+  MigrationRunner,
+  Migration,
+  PerformanceMonitor,
+  IsolationLevel,
+} from '@db-bridge/core';
+
+describe('MySQL Integration Tests', () => {
+  let adapter: MySQLAdapter;
+  let healthChecker: HealthChecker;
+  let metricsCollector: MetricsCollector;
+  let performanceMonitor: PerformanceMonitor;
+
+  beforeAll(async () => {
+    adapter = new MySQLAdapter({
+      logger: console,
+    });
+
+    await adapter.connect({
+      host: 'localhost',
+      port: 3306,
+      user: 'root',
+      password: '',
+      database: 'db_bridge_test',
+      poolSize: 5,
+    });
+
+    // Set up monitoring
+    healthChecker = new HealthChecker([adapter]);
+    metricsCollector = new MetricsCollector([adapter]);
+    performanceMonitor = new PerformanceMonitor(adapter, { slowQueryThreshold: 100 });
+  });
+
+  afterAll(async () => {
+    await adapter.disconnect();
+  });
+
+  beforeEach(async () => {
+    // Clean up test tables
+    await adapter.execute('DROP TABLE IF EXISTS test_users');
+    await adapter.execute('DROP TABLE IF EXISTS test_orders');
+    await adapter.execute('DROP TABLE IF EXISTS db_migrations');
+  });
+
+  describe('Basic Operations', () => {
+    it('should execute queries successfully', async () => {
+      await adapter.execute(`
+        CREATE TABLE test_users (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          name VARCHAR(100) NOT NULL,
+          email VARCHAR(100) UNIQUE,
+          age INT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await adapter.execute(
+        'INSERT INTO test_users (name, email, age) VALUES (?, ?, ?)',
+        ['John Doe', 'john@example.com', 25]
+      );
+
+      const result = await adapter.query('SELECT * FROM test_users');
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows[0]).toMatchObject({
+        name: 'John Doe',
+        email: 'john@example.com',
+        age: 25,
+      });
+    });
+
+    it('should handle prepared statements', async () => {
+      await adapter.execute(`
+        CREATE TABLE test_users (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          name VARCHAR(100),
+          status VARCHAR(50)
+        )
+      `);
+
+      const stmt = await adapter.prepare('INSERT INTO test_users (name, status) VALUES (?, ?)');
+
+      await stmt.execute(['User 1', 'active']);
+      await stmt.execute(['User 2', 'inactive']);
+      await stmt.execute(['User 3', 'active']);
+
+      await stmt.release();
+
+      const result = await adapter.query('SELECT COUNT(*) as count FROM test_users');
+      expect(result.rows[0]?.count).toBe(3);
+    });
+
+    it('should escape values correctly', () => {
+      expect(adapter.escape("O'Brien")).toBe("'O\\'Brien'");
+      expect(adapter.escape(null)).toBe('NULL');
+      expect(adapter.escape(true)).toBe('1');
+      expect(adapter.escape(false)).toBe('0');
+      expect(adapter.escape(123)).toBe('123');
+    });
+
+    it('should escape identifiers correctly', () => {
+      expect(adapter.escapeIdentifier('table')).toBe('`table`');
+      expect(adapter.escapeIdentifier('my-table')).toBe('`my-table`');
+    });
+  });
+
+  describe('Query Builder', () => {
+    beforeEach(async () => {
+      await adapter.execute(`
+        CREATE TABLE test_users (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          name VARCHAR(100),
+          email VARCHAR(100),
+          age INT,
+          status VARCHAR(50),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    });
+
+    it('should perform SELECT queries', async () => {
+      const qb = adapter.createQueryBuilder();
+
+      await qb.insert('test_users', [
+        { name: 'John', email: 'john@example.com', age: 25, status: 'active' },
+        { name: 'Jane', email: 'jane@example.com', age: 30, status: 'active' },
+        { name: 'Bob', email: 'bob@example.com', age: 35, status: 'inactive' },
+      ]).execute();
+
+      const activeUsers = await qb
+        .select('name', 'email')
+        .from('test_users')
+        .where({ status: 'active' })
+        .orderBy('name', 'ASC')
+        .execute();
+
+      expect(activeUsers.rows).toHaveLength(2);
+      expect(activeUsers.rows[0]).toMatchObject({ name: 'Jane' });
+      expect(activeUsers.rows[1]).toMatchObject({ name: 'John' });
+    });
+
+    it('should perform UPDATE queries', async () => {
+      const qb = adapter.createQueryBuilder();
+
+      await qb.insert('test_users', { name: 'Test User', status: 'pending' }).execute();
+
+      await qb
+        .update('test_users', { status: 'active' })
+        .where({ status: 'pending' })
+        .execute();
+
+      const result = await qb.select('*').from('test_users').first();
+      expect(result?.status).toBe('active');
+    });
+
+    it('should handle complex WHERE conditions', async () => {
+      const qb = adapter.createQueryBuilder();
+
+      await qb.insert('test_users', [
+        { name: 'User 1', age: 20 },
+        { name: 'User 2', age: 25 },
+        { name: 'User 3', age: 30 },
+        { name: 'User 4', age: 35 },
+        { name: 'User 5', age: 40 },
+      ]).execute();
+
+      const result = await qb
+        .select('*')
+        .from('test_users')
+        .whereIn('age', [25, 30, 35])
+        .execute();
+
+      expect(result.rows).toHaveLength(3);
+
+      const betweenResult = await qb
+        .select('*')
+        .from('test_users')
+        .whereBetween('age', 25, 35)
+        .execute();
+
+      expect(betweenResult.rows).toHaveLength(3);
+    });
+
+    it('should handle NULL checks', async () => {
+      const qb = adapter.createQueryBuilder();
+
+      await qb.insert('test_users', [
+        { name: 'User 1', email: 'user1@example.com' },
+        { name: 'User 2', email: null },
+        { name: 'User 3', email: 'user3@example.com' },
+      ]).execute();
+
+      const nullEmails = await qb
+        .select('*')
+        .from('test_users')
+        .whereNull('email')
+        .execute();
+
+      expect(nullEmails.rows).toHaveLength(1);
+
+      const notNullEmails = await qb
+        .select('*')
+        .from('test_users')
+        .whereNotNull('email')
+        .execute();
+
+      expect(notNullEmails.rows).toHaveLength(2);
+    });
+
+    it('should perform aggregations', async () => {
+      const qb = adapter.createQueryBuilder();
+
+      await qb.insert('test_users', [
+        { name: 'User 1', age: 25, status: 'active' },
+        { name: 'User 2', age: 30, status: 'active' },
+        { name: 'User 3', age: 35, status: 'inactive' },
+      ]).execute();
+
+      const count = await qb.select('*').from('test_users').count();
+      expect(count).toBe(3);
+
+      const exists = await qb
+        .select('*')
+        .from('test_users')
+        .where({ status: 'active' })
+        .exists();
+      expect(exists).toBe(true);
+    });
+  });
+
+  describe('Transactions', () => {
+    beforeEach(async () => {
+      await adapter.execute(`
+        CREATE TABLE test_users (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          name VARCHAR(100),
+          balance DECIMAL(10, 2) DEFAULT 0
+        )
+      `);
+    });
+
+    it('should handle basic transactions', async () => {
+      await adapter.execute('INSERT INTO test_users (name, balance) VALUES (?, ?)', ['Alice', 100]);
+      await adapter.execute('INSERT INTO test_users (name, balance) VALUES (?, ?)', ['Bob', 50]);
+
+      const transaction = await adapter.beginTransaction();
+
+      try {
+        await adapter.execute(
+          'UPDATE test_users SET balance = balance - ? WHERE name = ?',
+          [50, 'Alice'],
+          { transaction }
+        );
+
+        await adapter.execute(
+          'UPDATE test_users SET balance = balance + ? WHERE name = ?',
+          [50, 'Bob'],
+          { transaction }
+        );
+
+        await transaction.commit();
+
+        const alice = await adapter.query('SELECT * FROM test_users WHERE name = ?', ['Alice']);
+        const bob = await adapter.query('SELECT * FROM test_users WHERE name = ?', ['Bob']);
+
+        expect(alice.rows[0]?.balance).toBe(50);
+        expect(bob.rows[0]?.balance).toBe(100);
+      } catch (error) {
+        await transaction.rollback();
+        throw error;
+      }
+    });
+
+    it('should rollback on error', async () => {
+      await adapter.execute('INSERT INTO test_users (name, balance) VALUES (?, ?)', ['Charlie', 100]);
+
+      const transaction = await adapter.beginTransaction();
+
+      try {
+        await adapter.execute(
+          'UPDATE test_users SET balance = balance - ? WHERE name = ?',
+          [50, 'Charlie'],
+          { transaction }
+        );
+
+        // This should fail due to invalid SQL
+        await adapter.execute(
+          'INVALID SQL STATEMENT',
+          [],
+          { transaction }
+        );
+
+        await transaction.commit();
+      } catch (error) {
+        await transaction.rollback();
+      }
+
+      const charlie = await adapter.query('SELECT * FROM test_users WHERE name = ?', ['Charlie']);
+      expect(charlie.rows[0]?.balance).toBe(100); // Balance should remain unchanged
+    });
+
+    it('should handle savepoints', async () => {
+      await adapter.execute('INSERT INTO test_users (name, balance) VALUES (?, ?)', ['David', 200]);
+
+      const transaction = await adapter.beginTransaction();
+
+      try {
+        await adapter.execute(
+          'UPDATE test_users SET balance = balance - ? WHERE name = ?',
+          [50, 'David'],
+          { transaction }
+        );
+
+        await transaction.savepoint('sp1');
+
+        await adapter.execute(
+          'UPDATE test_users SET balance = balance - ? WHERE name = ?',
+          [30, 'David'],
+          { transaction }
+        );
+
+        // Rollback to savepoint
+        await transaction.rollbackToSavepoint('sp1');
+
+        await transaction.commit();
+
+        const david = await adapter.query('SELECT * FROM test_users WHERE name = ?', ['David']);
+        expect(david.rows[0]?.balance).toBe(150); // Only first update applied
+      } catch (error) {
+        await transaction.rollback();
+        throw error;
+      }
+    });
+
+    it('should handle isolation levels', async () => {
+      const transaction = await adapter.beginTransaction({
+        isolationLevel: IsolationLevel.READ_COMMITTED,
+      });
+
+      expect(transaction.isActive).toBe(true);
+      await transaction.rollback();
+    });
+  });
+
+  describe('Health Monitoring', () => {
+    it('should perform health checks', async () => {
+      const result = await healthChecker.check();
+
+      expect(result.status).toBe('healthy');
+      expect(result.latency).toBeGreaterThan(0);
+      expect(result.details.connectionPool).toBeDefined();
+      expect(result.details.connectionPool?.total).toBeGreaterThan(0);
+    });
+
+    it('should monitor health over time', async () => {
+      const healthChanges: any[] = [];
+
+      healthChecker = new HealthChecker(adapter, {
+        interval: 100,
+        onHealthChange: (result) => healthChanges.push(result),
+      });
+
+      healthChecker.start();
+
+      // Wait for some health checks
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      healthChecker.stop();
+
+      expect(healthChecker.getLastResult()).toBeDefined();
+      expect(healthChecker.isHealthy()).toBe(true);
+    });
+
+    it('should collect metrics', async () => {
+      // Record some operations
+      metricsCollector.recordQuery('SELECT', 50, true);
+      metricsCollector.recordQuery('INSERT', 100, true);
+      metricsCollector.recordQuery('UPDATE', 75, false);
+      metricsCollector.recordQuery('SELECT', 200, true);
+
+      metricsCollector.recordConnection(true, 10);
+      metricsCollector.recordTransaction('start');
+      metricsCollector.recordTransaction('commit', 150);
+
+      const snapshot = metricsCollector.getSnapshot();
+
+      expect(snapshot.query.totalQueries).toBe(4);
+      expect(snapshot.query.successfulQueries).toBe(3);
+      expect(snapshot.query.failedQueries).toBe(1);
+      expect(snapshot.query.averageLatency).toBe(106.25);
+      expect(snapshot.query.queryDistribution).toEqual({
+        SELECT: 2,
+        INSERT: 1,
+        UPDATE: 1,
+      });
+
+      expect(snapshot.connection.totalConnections).toBe(1);
+      expect(snapshot.transaction.totalTransactions).toBe(1);
+      expect(snapshot.transaction.committedTransactions).toBe(1);
+    });
+
+    it('should export Prometheus metrics', () => {
+      const prometheus = metricsCollector.exportPrometheus();
+
+      expect(prometheus).toContain('db_queries_total');
+      expect(prometheus).toContain('db_query_duration_seconds');
+      expect(prometheus).toContain('db_connections_active');
+      expect(prometheus).toContain('db_transactions_total');
+    });
+  });
+
+  describe('Performance Monitoring', () => {
+    it('should trace query performance', async () => {
+      await adapter.execute(`
+        CREATE TABLE test_products (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          name VARCHAR(100),
+          price DECIMAL(10, 2),
+          INDEX idx_price (price)
+        )
+      `);
+
+      // Insert test data
+      for (let i = 1; i <= 100; i++) {
+        await adapter.execute(
+          'INSERT INTO test_products (name, price) VALUES (?, ?)',
+          [`Product ${i}`, Math.random() * 1000]
+        );
+      }
+
+      // Perform queries
+      await adapter.query('SELECT * FROM test_products WHERE price > 500');
+      await adapter.query('SELECT COUNT(*) FROM test_products');
+
+      const traces = performanceMonitor.getTraces();
+      expect(traces.length).toBeGreaterThan(0);
+
+      const slowQueries = performanceMonitor.getSlowQueries();
+      // May or may not have slow queries depending on system performance
+
+      const report = await performanceMonitor.analyzePerformance();
+      expect(report.bottlenecks).toBeDefined();
+      expect(report.recommendations).toBeDefined();
+    });
+
+    it('should explain queries', async () => {
+      await adapter.execute(`
+        CREATE TABLE test_items (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          name VARCHAR(100),
+          category VARCHAR(50),
+          INDEX idx_category (category)
+        )
+      `);
+
+      const sql = 'SELECT * FROM test_items WHERE category = ?';
+      const plan = await performanceMonitor.explainQuery(sql, ['electronics']);
+
+      expect(plan).toBeDefined();
+      if (plan) {
+        expect(plan.plan).toBeDefined();
+        expect(typeof plan.cost).toBe('number');
+      }
+    });
+  });
+
+  describe('Migrations', () => {
+    it('should run migrations', async () => {
+      const runner = new MigrationRunner(adapter);
+
+      const migration1: Migration = {
+        id: 'create-users-table',
+        version: 1,
+        name: 'Create users table',
+        timestamp: new Date(),
+        up: async (db) => {
+          await db.execute(`
+            CREATE TABLE users (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              username VARCHAR(50) NOT NULL UNIQUE,
+              email VARCHAR(100) NOT NULL UNIQUE,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
+        },
+        down: async (db) => {
+          await db.execute('DROP TABLE users');
+        },
+      };
+
+      const migration2: Migration = {
+        id: 'add-user-profile',
+        version: 2,
+        name: 'Add user profile fields',
+        timestamp: new Date(),
+        up: async (db) => {
+          await db.execute(`
+            ALTER TABLE users
+            ADD COLUMN full_name VARCHAR(100),
+            ADD COLUMN bio TEXT,
+            ADD COLUMN avatar_url VARCHAR(255)
+          `);
+        },
+        down: async (db) => {
+          await db.execute(`
+            ALTER TABLE users
+            DROP COLUMN full_name,
+            DROP COLUMN bio,
+            DROP COLUMN avatar_url
+          `);
+        },
+      };
+
+      runner.addMigrations([migration1, migration2]);
+
+      // Run migrations
+      await runner.up();
+
+      // Check status
+      const status = await runner.status();
+      expect(status.executed).toHaveLength(2);
+      expect(status.pending).toHaveLength(0);
+      expect(status.current).toBe(2);
+
+      // Rollback one migration
+      await runner.rollback(1);
+
+      const statusAfterRollback = await runner.status();
+      expect(statusAfterRollback.executed).toHaveLength(1);
+      expect(statusAfterRollback.current).toBe(1);
+
+      // Reset all migrations
+      await runner.reset();
+
+      const statusAfterReset = await runner.status();
+      expect(statusAfterReset.executed).toHaveLength(0);
+      expect(statusAfterReset.current).toBeNull();
+    });
+
+    it('should validate migrations', async () => {
+      const runner = new MigrationRunner(adapter);
+
+      const migration1: Migration = {
+        id: 'test-1',
+        version: 1,
+        name: 'Test 1',
+        timestamp: new Date(),
+        up: async () => {},
+        down: async () => {},
+      };
+
+      const migration2: Migration = {
+        id: 'test-2',
+        version: 1, // Duplicate version
+        name: 'Test 2',
+        timestamp: new Date(),
+        up: async () => {},
+        down: async () => {},
+      };
+
+      runner.addMigration(migration1);
+
+      expect(() => runner.addMigration(migration2)).toThrow('already exists');
+
+      const validation = await runner.validate();
+      expect(validation.valid).toBe(true);
+    });
+  });
+
+  describe('Connection Pool Management', () => {
+    it('should manage connection pool', async () => {
+      const stats = adapter.getPoolStats();
+
+      expect(stats.total).toBeGreaterThan(0);
+      expect(stats.idle).toBeGreaterThanOrEqual(0);
+      expect(stats.active).toBeGreaterThanOrEqual(0);
+      expect(stats.waiting).toBe(0);
+
+      // Perform concurrent queries
+      const promises = Array(10).fill(0).map(() => 
+        adapter.query('SELECT SLEEP(0.1)')
+      );
+
+      await Promise.all(promises);
+
+      // Pool should have handled all queries
+      const statsAfter = adapter.getPoolStats();
+      expect(statsAfter.waiting).toBe(0);
+    });
+
+    it('should handle connection failures gracefully', async () => {
+      const badAdapter = new MySQLAdapter();
+
+      await expect(
+        badAdapter.connect({
+          host: 'nonexistent-host',
+          database: 'test',
+          connectionTimeout: 1000,
+        })
+      ).rejects.toThrow('Failed to connect to database');
+    });
+  });
+
+  describe('Advanced Features', () => {
+    it('should handle JSON data', async () => {
+      await adapter.execute(`
+        CREATE TABLE test_json (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          data JSON
+        )
+      `);
+
+      const jsonData = { name: 'Test', tags: ['a', 'b', 'c'], active: true };
+
+      await adapter.execute(
+        'INSERT INTO test_json (data) VALUES (?)',
+        [JSON.stringify(jsonData)]
+      );
+
+      const result = await adapter.query('SELECT * FROM test_json');
+      const parsed = JSON.parse(result.rows[0]?.data as string);
+      expect(parsed).toEqual(jsonData);
+    });
+
+    it('should handle large result sets', async () => {
+      await adapter.execute(`
+        CREATE TABLE test_large (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          data VARCHAR(255)
+        )
+      `);
+
+      // Insert many rows
+      const insertPromises = Array(1000).fill(0).map((_, i) =>
+        adapter.execute(
+          'INSERT INTO test_large (data) VALUES (?)',
+          [`Data ${i}`]
+        )
+      );
+
+      await Promise.all(insertPromises);
+
+      const result = await adapter.query('SELECT COUNT(*) as count FROM test_large');
+      expect(result.rows[0]?.count).toBe(1000);
+
+      // Test pagination
+      const qb = adapter.createQueryBuilder();
+      const page1 = await qb
+        .select('*')
+        .from('test_large')
+        .orderBy('id', 'ASC')
+        .limit(50)
+        .offset(0)
+        .execute();
+
+      expect(page1.rows).toHaveLength(50);
+    });
+  });
+});

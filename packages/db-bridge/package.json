@@ -1,0 +1,71 @@
+{
+  "name": "db-bridge",
+  "version": "1.0.0",
+  "description": "Unified database adapter for Node.js - All-in-one package with MySQL, PostgreSQL, and Redis support",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@db-bridge/core": "^1.0.0",
+    "@db-bridge/mysql": "^1.0.0",
+    "@db-bridge/postgresql": "^1.0.0",
+    "@db-bridge/redis": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "rimraf": "^5.0.5",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "database",
+    "mysql",
+    "postgresql",
+    "postgres",
+    "redis",
+    "adapter",
+    "orm",
+    "query-builder",
+    "cache",
+    "typescript",
+    "nodejs",
+    "sql",
+    "nosql",
+    "unified",
+    "driver",
+    "connection-pool",
+    "transactions"
+  ],
+  "author": "Berke Erdogan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/berkeerdogan/db-bridge.git"
+  },
+  "homepage": "https://github.com/berkeerdogan/db-bridge#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

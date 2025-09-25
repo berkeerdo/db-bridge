@@ -1,0 +1,72 @@
+{
+  "name": "@db-bridge/monorepo",
+  "version": "1.0.0",
+  "description": "A comprehensive database management library with Redis caching support",
+  "private": true,
+  "author": "Berke Erdoğan",
+  "license": "MIT",
+  "keywords": [
+    "database",
+    "mysql",
+    "postgresql",
+    "redis",
+    "cache",
+    "orm",
+    "typescript",
+    "query-builder"
+  ],
+  "homepage": "https://github.com/berkeerdogan/db-bridge#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berkeerdogan/db-bridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/berkeerdogan/db-bridge/issues"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "lerna run build",
+    "test": "lerna run test",
+    "test:integration": "cd tests/integration && npx vitest run",
+    "test:integration:watch": "cd tests/integration && npx vitest",
+    "test:integration:coverage": "cd tests/integration && npx vitest run --coverage",
+    "test:all": "npm run test && npm run test:integration",
+    "lint": "lerna run lint",
+    "typecheck": "lerna run typecheck",
+    "clean": "lerna run clean",
+    "dev": "lerna run dev --parallel",
+    "publish": "lerna publish",
+    "version": "lerna version",
+    "bootstrap": "lerna bootstrap",
+    "prepare": "husky install",
+    "docker:test:up": "docker-compose -f docker-compose.test.yml up -d",
+    "docker:test:down": "docker-compose -f docker-compose.test.yml down -v",
+    "docker:test:logs": "docker-compose -f docker-compose.test.yml logs -f",
+    "test:examples": "npm run test:mysql && npm run test:pg && npm run test:redis",
+    "test:mysql": "tsx examples/08-testing/local-mysql-test.ts",
+    "test:pg": "tsx examples/08-testing/local-pg-test.ts",
+    "test:redis": "tsx examples/08-testing/local-redis-test.ts",
+    "example:mysql": "tsx examples/01-basic/mysql-basic.ts",
+    "example:pg": "tsx examples/01-basic/postgresql-basic.ts",
+    "example:redis": "tsx examples/01-basic/redis-basic.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "husky": "^8.0.3",
+    "lerna": "^8.0.0",
+    "prettier": "^3.1.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+}

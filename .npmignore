@@ -1,0 +1,87 @@
+# Source files
+src/
+*.ts
+\!dist/**/*.d.ts
+
+# Config files
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+.eslintrc
+.prettierrc
+
+# Tests
+__tests__/
+tests/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+coverage/
+.nyc_output/
+
+# Development files
+examples/
+docs/
+*.md
+\!README.md
+\!LICENSE
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Local files
+CLAUDE.local.md
+CLAUDE.md
+*.local.md
+
+# Build tools
+.lerna-backup/
+lerna-debug.log
+build-packages.sh
+
+# Docker
+docker-compose*.yml
+Dockerfile
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.log
+*.tmp
+*.temp
+test-*.js
+analyze-*.js
+quick-test*.js
+
+# Package artifacts
+*.tgz
+
+# Development dependencies config
+.husky/
+.commitlintrc*
+
+# Environment
+.env*
+
+# Git
+.git/
+.gitignore
+
+# Lerna
+lerna.json
+
+# Lock files (for packages, not root)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+EOF < /dev/null
