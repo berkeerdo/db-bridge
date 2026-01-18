@@ -27,12 +27,16 @@ export interface DBBridgeConfig {
     tableName?: string;
     /** Lock table name */
     lockTableName?: string;
+    /** Prefix for migration filenames (e.g., 'auth' -> auth_20250119_xxx.ts) */
+    prefix?: string;
   };
 
   /** Seed settings */
   seeds?: {
     /** Directory containing seed files */
     directory?: string;
+    /** Prefix for seed filenames (e.g., 'auth' -> auth_01_users.ts) */
+    prefix?: string;
   };
 }
 

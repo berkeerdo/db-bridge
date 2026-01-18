@@ -24,7 +24,8 @@ export async function makeSeederCommand(name: string): Promise<void> {
     }
 
     // Generate filename and content
-    const filename = SeederLoader.generateFilename(name);
+    const prefix = config.seeds?.prefix;
+    const filename = SeederLoader.generateFilename(name, prefix);
     const filepath = resolve(directory, filename);
     const seederName = filename.replace(/\.(ts|js|mjs)$/, '');
     const content = SeederLoader.getSeederTemplate(seederName);

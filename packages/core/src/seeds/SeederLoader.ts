@@ -54,15 +54,24 @@ export class SeederLoader {
 
   /**
    * Generate a new seeder filename
+   * @param name - Seeder name
+   * @param prefix - Optional prefix (e.g., 'auth' -> auth_users_seeder.ts)
    */
-  static generateFilename(name: string): string {
+  static generateFilename(name: string, prefix?: string): string {
     // Convert to snake_case
     const snakeName = name
       .replaceAll(/([a-z])([A-Z])/g, '$1_$2')
       .replaceAll(/[\s-]+/g, '_')
       .toLowerCase();
 
-    return `${snakeName}_seeder.ts`;
+    const sanitizedPrefix = prefix
+      ? prefix
+          .toLowerCase()
+          .replaceAll(/[^\da-z]+/g, '_')
+          .replaceAll(/^_+|_+$/g, '')
+      : null;
+
+    return sanitizedPrefix ? `${sanitizedPrefix}_${snakeName}_seeder.ts` : `${snakeName}_seeder.ts`;
   }
 
   /**

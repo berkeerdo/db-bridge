@@ -17,6 +17,8 @@ export interface MigrationFile {
   timestamp: string;
   /** Migration description (from filename after timestamp) */
   description: string;
+  /** Optional prefix (e.g., 'auth' from auth_20250118_xxx.ts) */
+  prefix?: string;
 }
 
 /**

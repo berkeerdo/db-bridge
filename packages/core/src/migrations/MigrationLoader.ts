@@ -12,10 +12,12 @@ import type { Migration, MigrationFile } from './types';
 
 /**
  * Migration filename pattern
- * Format: YYYYMMDDHHMMSS_description.ts
- * Example: 20250118120000_create_users_table.ts
+ * Format: [prefix_]YYYYMMDDHHMMSS_description.ts
+ * Examples:
+ *   - 20250118120000_create_users_table.ts
+ *   - auth_20250118120000_create_users_table.ts
  */
-const MIGRATION_PATTERN = /^(\d{14})_(.+)\.(ts|js|mjs)$/;
+const MIGRATION_PATTERN = /^(?:([_a-z]+)_)?(\d{14})_(.+)\.(ts|js|mjs)$/;
 
 export class MigrationLoader {
   private directory: string;
@@ -51,12 +53,13 @@ export class MigrationLoader {
           continue;
         }
 
-        const [, timestamp, description] = match;
+        const [, prefix, timestamp, description] = match;
         files.push({
           name: basename(entry.name, ext),
           path: join(this.directory, entry.name),
           timestamp: timestamp!,
           description: description!.replaceAll('_', ' '),
+          prefix,
         });
       }
 
@@ -154,8 +157,10 @@ export class MigrationLoader {
 
   /**
    * Generate a new migration filename
+   * @param description - Migration description
+   * @param prefix - Optional prefix (e.g., 'auth' -> auth_20250119_xxx.ts)
    */
-  static generateFilename(description: string): string {
+  static generateFilename(description: string, prefix?: string): string {
     const now = new Date();
     const timestamp = [
       now.getFullYear(),
@@ -171,7 +176,16 @@ export class MigrationLoader {
       .replaceAll(/[^\da-z]+/g, '_')
       .replaceAll(/^_+|_+$/g, '');
 
-    return `${timestamp}_${sanitizedDescription}.ts`;
+    const sanitizedPrefix = prefix
+      ? prefix
+          .toLowerCase()
+          .replaceAll(/[^\da-z]+/g, '_')
+          .replaceAll(/^_+|_+$/g, '')
+      : null;
+
+    return sanitizedPrefix
+      ? `${sanitizedPrefix}_${timestamp}_${sanitizedDescription}.ts`
+      : `${timestamp}_${sanitizedDescription}.ts`;
   }
 
   /**

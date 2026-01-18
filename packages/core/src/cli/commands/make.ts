@@ -24,7 +24,8 @@ export async function makeCommand(name: string): Promise<void> {
     }
 
     // Generate filename and content
-    const filename = MigrationLoader.generateFilename(name);
+    const prefix = config.migrations?.prefix;
+    const filename = MigrationLoader.generateFilename(name, prefix);
     const filepath = resolve(directory, filename);
     const migrationName = filename.replace(/\.(ts|js|mjs)$/, '');
     const content = MigrationLoader.getMigrationTemplate(migrationName);
