@@ -5,18 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## 1.1.7 (2026-01-18)
 
-
-
 ## 1.1.5 (2026-01-18)
-
 
 ### Features
 
-* complete db-bridge v1.1.5 ([71754c5](https://github.com/berkeerdo/db-bridge/commit/71754c5cffa1ee6f2bb31e1f8173ba4f18babbe9))
-
-
-
-
+- complete db-bridge v1.1.5 ([71754c5](https://github.com/berkeerdo/db-bridge/commit/71754c5cffa1ee6f2bb31e1f8173ba4f18babbe9))
 
 ## 1.1.6 (2026-01-18)
 

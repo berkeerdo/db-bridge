@@ -5,23 +5,15 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## 1.1.7 (2026-01-18)
 
-
 ### Features
 
-* **cli:** add prefix support for migrations and seeds ([bddc348](https://github.com/berkeerdo/db-bridge/commit/bddc348588b99e43d3c65a6093e1c16fb6f0584f))
-
-
+- **cli:** add prefix support for migrations and seeds ([bddc348](https://github.com/berkeerdo/db-bridge/commit/bddc348588b99e43d3c65a6093e1c16fb6f0584f))
 
 ## 1.1.5 (2026-01-18)
 
-
 ### Features
 
-* complete db-bridge v1.1.5 ([71754c5](https://github.com/berkeerdo/db-bridge/commit/71754c5cffa1ee6f2bb31e1f8173ba4f18babbe9))
-
-
-
-
+- complete db-bridge v1.1.5 ([71754c5](https://github.com/berkeerdo/db-bridge/commit/71754c5cffa1ee6f2bb31e1f8173ba4f18babbe9))
 
 ## 1.1.6 (2026-01-18)
 
