@@ -10,10 +10,12 @@ export class MySQLQueryBuilder<T = unknown> extends BaseQueryBuilder<T> {
 
     parts.push('SELECT');
     parts.push(this.selectColumns.join(', '));
-    
+
     parts.push('FROM');
     if (this.fromAlias) {
-      parts.push(`${this.escapeIdentifierFn(this.fromTable)} AS ${this.escapeIdentifierFn(this.fromAlias)}`);
+      parts.push(
+        `${this.escapeIdentifierFn(this.fromTable)} AS ${this.escapeIdentifierFn(this.fromAlias)}`,
+      );
     } else {
       parts.push(this.escapeIdentifierFn(this.fromTable));
     }

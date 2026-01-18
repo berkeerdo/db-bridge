@@ -1,5 +1,13 @@
-import { PoolClient } from 'pg';
-import { Transaction, TransactionOptions, TransactionError, generateUUID, QueryParams, QueryOptions, QueryResult } from '@db-bridge/core';
+import { TransactionError, generateUUID } from '@db-bridge/core';
+
+import type {
+  Transaction,
+  TransactionOptions,
+  QueryParams,
+  QueryOptions,
+  QueryResult,
+} from '@db-bridge/core';
+import type { PoolClient } from 'pg';
 
 export class PostgreSQLTransaction implements Transaction {
   readonly id: string;
@@ -40,7 +48,7 @@ export class PostgreSQLTransaction implements Transaction {
       }
 
       await this.client.query('BEGIN');
-      
+
       for (const query of queries) {
         await this.client.query(query);
       }
@@ -93,7 +101,7 @@ export class PostgreSQLTransaction implements Transaction {
     }
 
     try {
-      const safeName = name.replace(/[^a-zA-Z0-9_]/g, '_');
+      const safeName = name.replaceAll(/\W/g, '_');
       await this.client.query(`SAVEPOINT ${safeName}`);
       this.savepoints.add(name);
     } catch (error) {
@@ -111,7 +119,7 @@ export class PostgreSQLTransaction implements Transaction {
     }
 
     try {
-      const safeName = name.replace(/[^a-zA-Z0-9_]/g, '_');
+      const safeName = name.replaceAll(/\W/g, '_');
       await this.client.query(`RELEASE SAVEPOINT ${safeName}`);
       this.savepoints.delete(name);
     } catch (error) {
@@ -129,9 +137,9 @@ export class PostgreSQLTransaction implements Transaction {
     }
 
     try {
-      const safeName = name.replace(/[^a-zA-Z0-9_]/g, '_');
+      const safeName = name.replaceAll(/\W/g, '_');
       await this.client.query(`ROLLBACK TO SAVEPOINT ${safeName}`);
-      
+
       const savepointsArray = Array.from(this.savepoints);
       const index = savepointsArray.indexOf(name);
       if (index !== -1) {
@@ -140,7 +148,11 @@ export class PostgreSQLTransaction implements Transaction {
         }
       }
     } catch (error) {
-      throw new TransactionError(`Failed to rollback to savepoint "${name}"`, this.id, error as Error);
+      throw new TransactionError(
+        `Failed to rollback to savepoint "${name}"`,
+        this.id,
+        error as Error,
+      );
     }
   }
 
@@ -148,7 +160,11 @@ export class PostgreSQLTransaction implements Transaction {
     return this.client;
   }
 
-  async query<T = unknown>(sql: string, params?: QueryParams, _options?: QueryOptions): Promise<QueryResult<T>> {
+  async query<T = unknown>(
+    sql: string,
+    params?: QueryParams,
+    _options?: QueryOptions,
+  ): Promise<QueryResult<T>> {
     if (!this._isActive) {
       throw new TransactionError('Transaction not active', this.id);
     }
@@ -160,6 +176,7 @@ export class PostgreSQLTransaction implements Transaction {
       const queryResult: QueryResult<T> = {
         rows: result.rows as T[],
         rowCount: result.rowCount || 0,
+        affectedRows: result.rowCount || 0,
         fields: result.fields?.map((field) => ({
           name: field.name,
           type: field.dataTypeID?.toString() || 'unknown',
@@ -173,7 +190,22 @@ export class PostgreSQLTransaction implements Transaction {
 
       return queryResult;
     } catch (error) {
-      throw new TransactionError(`Query failed in transaction: ${(error as Error).message}`, this.id, error as Error);
+      throw new TransactionError(
+        `Query failed in transaction: ${(error as Error).message}`,
+        this.id,
+        error as Error,
+      );
     }
+  }
+
+  /**
+   * Alias for query() to provide consistency with adapter's execute method
+   */
+  async execute<T = unknown>(
+    sql: string,
+    params?: QueryParams,
+    options?: QueryOptions,
+  ): Promise<QueryResult<T>> {
+    return this.query<T>(sql, params, options);
   }
 }

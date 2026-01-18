@@ -1,5 +1,6 @@
 import { ValidationError } from '../errors';
-import { ConnectionConfig } from '../types';
+
+import type { ConnectionConfig } from '../types';
 
 export function validateConnectionConfig(config: ConnectionConfig): void {
   if (!config) {
@@ -19,7 +20,10 @@ export function validateConnectionConfig(config: ConnectionConfig): void {
     }
   }
 
-  if (config.port !== undefined && (typeof config.port !== 'number' || config.port < 1 || config.port > 65535)) {
+  if (
+    config.port !== undefined &&
+    (typeof config.port !== 'number' || config.port < 1 || config.port > 65_535)
+  ) {
     throw new ValidationError('Port must be a number between 1 and 65535', 'port');
   }
 
@@ -31,13 +35,13 @@ export function validateConnectionConfig(config: ConnectionConfig): void {
     config.connectionTimeout &&
     (typeof config.connectionTimeout !== 'number' || config.connectionTimeout < 0)
   ) {
-    throw new ValidationError('Connection timeout must be a non-negative number', 'connectionTimeout');
+    throw new ValidationError(
+      'Connection timeout must be a non-negative number',
+      'connectionTimeout',
+    );
   }
 
-  if (
-    config.idleTimeout &&
-    (typeof config.idleTimeout !== 'number' || config.idleTimeout < 0)
-  ) {
+  if (config.idleTimeout && (typeof config.idleTimeout !== 'number' || config.idleTimeout < 0)) {
     throw new ValidationError('Idle timeout must be a non-negative number', 'idleTimeout');
   }
 }
@@ -57,7 +61,7 @@ export function validateTableName(tableName: string): void {
     throw new ValidationError('Table name must be a non-empty string');
   }
 
-  const validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+  const validTableNameRegex = /^[A-Z_a-z]\w*$/;
   if (!validTableNameRegex.test(tableName)) {
     throw new ValidationError(
       'Table name must start with a letter or underscore and contain only letters, numbers, and underscores',
@@ -71,7 +75,7 @@ export function validateColumnName(columnName: string): void {
     throw new ValidationError('Column name must be a non-empty string');
   }
 
-  const validColumnNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+  const validColumnNameRegex = /^[A-Z_a-z]\w*$/;
   if (!validColumnNameRegex.test(columnName)) {
     throw new ValidationError(
       'Column name must start with a letter or underscore and contain only letters, numbers, and underscores',

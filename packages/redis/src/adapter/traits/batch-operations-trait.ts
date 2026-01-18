@@ -1,4 +1,5 @@
 import { CacheError, withTimeout } from '@db-bridge/core';
+
 import { BasicOperationsTrait } from './basic-operations-trait';
 
 export class BatchOperationsTrait extends BasicOperationsTrait {
@@ -11,10 +12,7 @@ export class BatchOperationsTrait extends BasicOperationsTrait {
 
     try {
       const fullKeys = keys.map((key) => this.getFullKey(key));
-      const values = await withTimeout(
-        this.client!.mget(...fullKeys),
-        this.commandTimeout,
-      );
+      const values = await withTimeout(this.client!.mget(...fullKeys), this.commandTimeout);
 
       return values.map((value) => {
         if (!value) {
@@ -27,9 +25,7 @@ export class BatchOperationsTrait extends BasicOperationsTrait {
     }
   }
 
-  async mset<T = unknown>(
-    items: Array<{ key: string; value: T; ttl?: number }>,
-  ): Promise<void> {
+  async mset<T = unknown>(items: Array<{ key: string; value: T; ttl?: number }>): Promise<void> {
     this.ensureConnected();
 
     if (items.length === 0) {
@@ -84,10 +80,7 @@ export class BatchOperationsTrait extends BasicOperationsTrait {
         ? pattern
         : this.getFullKey(pattern);
 
-      const keys = await withTimeout(
-        this.scanKeys(fullPattern),
-        this.commandTimeout * 5,
-      );
+      const keys = await withTimeout(this.scanKeys(fullPattern), this.commandTimeout * 5);
 
       return keys.map((key) => key.replace(this.config.keyPrefix!, ''));
     } catch (error) {
@@ -107,7 +100,7 @@ export class BatchOperationsTrait extends BasicOperationsTrait {
         'COUNT',
         1000,
       );
-      
+
       cursor = nextCursor;
       keys.push(...scannedKeys);
     } while (cursor !== '0');

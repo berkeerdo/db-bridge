@@ -1,14 +1,15 @@
-import { QueryResult } from '../types';
 import { generateCacheKey } from '../utils';
+
+import type { QueryResult } from '../types';
 
 export interface CacheStrategy {
   shouldCache(sql: string, result: QueryResult): boolean;
-  getCacheTTL(sql: string, options?: CacheManagerOptions): number;
-  getCacheKey(sql: string, params?: unknown[], options?: CacheManagerOptions): string;
+  getCacheTTL(sql: string, options?: QueryCacheOptions): number;
+  getCacheKey(sql: string, params?: unknown[], options?: QueryCacheOptions): string;
   getInvalidationPatterns(sql: string): string[];
 }
 
-export interface CacheManagerOptions {
+export interface QueryCacheOptions {
   ttl?: number;
   key?: string;
   tags?: string[];
@@ -24,7 +25,7 @@ export class DefaultCacheStrategy implements CacheStrategy {
 
   shouldCache(sql: string, result: QueryResult): boolean {
     const command = sql.trim().split(/\s+/)[0]?.toUpperCase();
-    
+
     // Only cache read operations
     if (!command || !this.cacheableCommands.includes(command)) {
       return false;
@@ -37,25 +38,26 @@ export class DefaultCacheStrategy implements CacheStrategy {
 
     // Don't cache very large results
     const resultSize = JSON.stringify(result).length;
-    if (resultSize > 1024 * 1024) { // 1MB
+    if (resultSize > 1024 * 1024) {
+      // 1MB
       return false;
     }
 
     return true;
   }
 
-  getCacheTTL(sql: string, options?: CacheManagerOptions): number {
+  getCacheTTL(sql: string, options?: QueryCacheOptions): number {
     if (options?.ttl !== undefined) {
       return options.ttl;
     }
 
     // Different TTLs for different query types
     const upperSql = sql.toUpperCase();
-    
+
     if (upperSql.includes('COUNT(') || upperSql.includes('SUM(')) {
       return 300; // 5 minutes for aggregates
     }
-    
+
     if (upperSql.includes('JOIN')) {
       return 600; // 10 minutes for joins
     }
@@ -63,7 +65,7 @@ export class DefaultCacheStrategy implements CacheStrategy {
     return this.defaultTTL;
   }
 
-  getCacheKey(sql: string, params?: unknown[], options?: CacheManagerOptions): string {
+  getCacheKey(sql: string, params?: unknown[], options?: QueryCacheOptions): string {
     if (options?.key) {
       return options.key;
     }
@@ -76,8 +78,7 @@ export class DefaultCacheStrategy implements CacheStrategy {
     const tables = this.extractTableNames(sql);
 
     tables.forEach((table) => {
-      patterns.push(`table:${table}:*`);
-      patterns.push(`query:*${table}*`);
+      patterns.push(`table:${table}:*`, `query:*${table}*`);
     });
 
     return patterns;
@@ -86,11 +87,11 @@ export class DefaultCacheStrategy implements CacheStrategy {
   protected extractTableNames(sql: string): string[] {
     const tables: string[] = [];
     const patterns = [
-      /FROM\s+`?(\w+)`?/gi,
-      /JOIN\s+`?(\w+)`?/gi,
-      /UPDATE\s+`?(\w+)`?/gi,
-      /INSERT\s+INTO\s+`?(\w+)`?/gi,
-      /DELETE\s+FROM\s+`?(\w+)`?/gi,
+      /from\s+`?(\w+)`?/gi,
+      /join\s+`?(\w+)`?/gi,
+      /update\s+`?(\w+)`?/gi,
+      /insert\s+into\s+`?(\w+)`?/gi,
+      /delete\s+from\s+`?(\w+)`?/gi,
     ];
 
     patterns.forEach((pattern) => {
@@ -133,7 +134,7 @@ export class SmartCacheStrategy extends DefaultCacheStrategy {
     return true;
   }
 
-  override getCacheTTL(sql: string, options?: CacheManagerOptions): number {
+  override getCacheTTL(sql: string, options?: QueryCacheOptions): number {
     const baseTTL = super.getCacheTTL(sql, options);
     const pattern = this.normalizeQuery(sql);
     const stats = this.queryPatterns.get(pattern);
@@ -166,9 +167,9 @@ export class SmartCacheStrategy extends DefaultCacheStrategy {
   private normalizeQuery(sql: string): string {
     // Normalize query to identify patterns
     return sql
-      .replace(/\s+/g, ' ')
-      .replace(/\d+/g, '?')
-      .replace(/'[^']*'/g, '?')
+      .replaceAll(/\s+/g, ' ')
+      .replaceAll(/\d+/g, '?')
+      .replaceAll(/'[^']*'/g, '?')
       .toLowerCase()
       .trim();
   }

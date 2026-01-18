@@ -1,5 +1,7 @@
+import { ConnectionError } from '@db-bridge/core';
 import * as mysql from 'mysql2/promise';
-import { ConnectionError, PoolStats } from '@db-bridge/core';
+
+import type { PoolStats } from '@db-bridge/core';
 
 export class MySQLConnectionPool {
   private pool?: mysql.Pool;
@@ -9,7 +11,7 @@ export class MySQLConnectionPool {
   async initialize(): Promise<void> {
     try {
       this.pool = mysql.createPool(this.options);
-      
+
       const connection = await this.pool.getConnection();
       await connection.ping();
       connection.release();
@@ -50,16 +52,16 @@ export class MySQLConnectionPool {
     // mysql2 doesn't expose pool stats directly, so we use internal properties
     // These may change in future versions of mysql2
     const pool = this.pool as any;
-    const poolConfig = pool.config as any;
-    
+    const poolConfig = pool.config;
+
     // Get connection limit from config
     const connectionLimit = poolConfig?.connectionLimit || 10;
-    
+
     // Try to access internal pool state
     const allConnections = pool._allConnections || [];
     const freeConnections = pool._freeConnections || [];
     const connectionQueue = pool._connectionQueue || [];
-    
+
     return {
       total: connectionLimit,
       idle: freeConnections.length,

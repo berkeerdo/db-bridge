@@ -31,7 +31,7 @@ await adapter.connect({
   port: 3306,
   user: 'root',
   password: 'password',
-  database: 'myapp'
+  database: 'myapp',
 });
 
 // Simple query
@@ -79,23 +79,23 @@ interface MySQLConnectionConfig {
 const adapter = new MySQLAdapter({
   // Logger instance (optional)
   logger: console,
-  
+
   // Retry options
   retryOptions: {
     maxRetries: 3,
-    retryDelay: 1000
+    retryDelay: 1000,
   },
-  
+
   // MySQL2 specific options
   mysql2Options: {
     ssl: {
       ca: fs.readFileSync('ca-cert.pem'),
-      rejectUnauthorized: true
+      rejectUnauthorized: true,
     },
     timezone: '+00:00',
     connectionLimit: 10,
-    enableKeepAlive: true
-  }
+    enableKeepAlive: true,
+  },
 });
 ```
 
@@ -105,22 +105,19 @@ const adapter = new MySQLAdapter({
 
 ```typescript
 // Simple query
-const result = await adapter.query(
-  'SELECT * FROM products WHERE price > ?',
-  [100]
-);
+const result = await adapter.query('SELECT * FROM products WHERE price > ?', [100]);
 
 // Named placeholders (converted to ?)
-const users = await adapter.query(
-  'SELECT * FROM users WHERE role = :role AND status = :status',
-  { role: 'admin', status: 'active' }
-);
+const users = await adapter.query('SELECT * FROM users WHERE role = :role AND status = :status', {
+  role: 'admin',
+  status: 'active',
+});
 
 // Insert with auto-generated ID
-const insertResult = await adapter.execute(
-  'INSERT INTO users (name, email) VALUES (?, ?)',
-  ['John Doe', 'john@example.com']
-);
+const insertResult = await adapter.execute('INSERT INTO users (name, email) VALUES (?, ?)', [
+  'John Doe',
+  'john@example.com',
+]);
 console.log('Inserted ID:', insertResult.insertId);
 ```
 
@@ -145,21 +142,15 @@ await qb
   .insert('products', {
     name: 'New Product',
     price: 99.99,
-    stock: 100
+    stock: 100,
   })
   .execute();
 
 // UPDATE
-await qb
-  .update('products', { price: 89.99 })
-  .where('id', '=', 123)
-  .execute();
+await qb.update('products', { price: 89.99 }).where('id', '=', 123).execute();
 
 // DELETE
-await qb
-  .delete('products')
-  .where('discontinued', '=', true)
-  .execute();
+await qb.delete('products').where('discontinued', '=', true).execute();
 ```
 
 ### Transactions
@@ -169,18 +160,14 @@ await qb
 const transaction = await adapter.beginTransaction();
 
 try {
-  await adapter.execute(
-    'INSERT INTO accounts (name, balance) VALUES (?, ?)',
-    ['Checking', 1000],
-    { transaction }
-  );
-  
-  await adapter.execute(
-    'INSERT INTO transactions (account_id, amount) VALUES (?, ?)',
-    [1, 1000],
-    { transaction }
-  );
-  
+  await adapter.execute('INSERT INTO accounts (name, balance) VALUES (?, ?)', ['Checking', 1000], {
+    transaction,
+  });
+
+  await adapter.execute('INSERT INTO transactions (account_id, amount) VALUES (?, ?)', [1, 1000], {
+    transaction,
+  });
+
   await transaction.commit();
 } catch (error) {
   await transaction.rollback();
@@ -192,16 +179,16 @@ const tx = await adapter.beginTransaction();
 
 try {
   await adapter.execute('INSERT INTO logs ...', [], { transaction: tx });
-  
+
   await tx.savepoint('sp1');
-  
+
   try {
     await riskyOperation(tx);
   } catch (error) {
     await tx.rollbackToSavepoint('sp1');
     // Continue with transaction
   }
-  
+
   await tx.commit();
 } catch (error) {
   await tx.rollback();
@@ -212,9 +199,7 @@ try {
 
 ```typescript
 // Prepare statement
-const stmt = await adapter.prepare(
-  'SELECT * FROM users WHERE department = ? AND role = ?'
-);
+const stmt = await adapter.prepare('SELECT * FROM users WHERE department = ? AND role = ?');
 
 // Execute multiple times
 const sales = await stmt.execute(['sales', 'manager']);
@@ -232,12 +217,10 @@ await stmt.release();
 const users = [
   { name: 'User 1', email: 'user1@example.com' },
   { name: 'User 2', email: 'user2@example.com' },
-  { name: 'User 3', email: 'user3@example.com' }
+  { name: 'User 3', email: 'user3@example.com' },
 ];
 
-await adapter.createQueryBuilder()
-  .insert('users', users)
-  .execute();
+await adapter.createQueryBuilder().insert('users', users).execute();
 
 // Bulk update
 await adapter.execute(`
@@ -285,7 +268,7 @@ try {
     console.error('Query error:', {
       code: error.code,
       message: error.message,
-      sql: error.sql
+      sql: error.sql,
     });
   }
 }
@@ -297,16 +280,14 @@ try {
 
 ```typescript
 // Insert JSON data
-await adapter.execute(
-  'INSERT INTO logs (data) VALUES (?)',
-  [JSON.stringify({ action: 'login', user: 123 })]
-);
+await adapter.execute('INSERT INTO logs (data) VALUES (?)', [
+  JSON.stringify({ action: 'login', user: 123 }),
+]);
 
 // Query JSON fields
-const logs = await adapter.query(
-  "SELECT * FROM logs WHERE JSON_EXTRACT(data, '$.action') = ?",
-  ['login']
-);
+const logs = await adapter.query("SELECT * FROM logs WHERE JSON_EXTRACT(data, '$.action') = ?", [
+  'login',
+]);
 ```
 
 ### Full-Text Search
@@ -314,7 +295,7 @@ const logs = await adapter.query(
 ```typescript
 const results = await adapter.query(
   'SELECT * FROM articles WHERE MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE)',
-  ['database management']
+  ['database management'],
 );
 ```
 
@@ -322,18 +303,21 @@ const results = await adapter.query(
 
 ```typescript
 // Insert point
-await adapter.execute(
-  'INSERT INTO locations (name, coords) VALUES (?, ST_GeomFromText(?))',
-  ['Office', 'POINT(40.7128 -74.0060)']
-);
+await adapter.execute('INSERT INTO locations (name, coords) VALUES (?, ST_GeomFromText(?))', [
+  'Office',
+  'POINT(40.7128 -74.0060)',
+]);
 
 // Find nearby
-const nearby = await adapter.query(`
+const nearby = await adapter.query(
+  `
   SELECT name, ST_Distance_Sphere(coords, ST_GeomFromText(?)) as distance
   FROM locations
   HAVING distance < 1000
   ORDER BY distance
-`, ['POINT(40.7589 -73.9851)']);
+`,
+  ['POINT(40.7589 -73.9851)'],
+);
 ```
 
 ## Best Practices
@@ -356,10 +340,7 @@ interface User {
 }
 
 // Type-safe queries
-const users = await adapter.query<User>(
-  'SELECT * FROM users WHERE id = ?',
-  [123]
-);
+const users = await adapter.query<User>('SELECT * FROM users WHERE id = ?', [123]);
 
 // Type-safe query builder
 const user = await adapter

@@ -1,5 +1,5 @@
-import { DatabaseAdapter } from '../interfaces';
-import { Logger } from '../types';
+import type { DatabaseAdapter } from '../interfaces';
+import type { Logger } from '../types';
 
 export interface HealthCheckResult {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -38,7 +38,7 @@ export class HealthChecker {
     this.adapter = adapter;
     this.startTime = new Date();
     this.options = {
-      interval: options.interval ?? 30000, // 30 seconds
+      interval: options.interval ?? 30_000, // 30 seconds
       timeout: options.timeout ?? 5000, // 5 seconds
       retries: options.retries ?? 3,
       onHealthChange: options.onHealthChange ?? (() => {}),
@@ -48,13 +48,13 @@ export class HealthChecker {
 
   async check(): Promise<HealthCheckResult> {
     const start = Date.now();
-    
+
     try {
       // Basic ping test
       const isHealthy = await Promise.race([
         this.adapter.ping(),
-        new Promise<boolean>((_, reject) => 
-          setTimeout(() => reject(new Error('Health check timeout')), this.options.timeout)
+        new Promise<boolean>((_, reject) =>
+          setTimeout(() => reject(new Error('Health check timeout')), this.options.timeout),
         ),
       ]);
 
@@ -64,14 +64,14 @@ export class HealthChecker {
 
       // Get pool stats
       const poolStats = this.adapter.getPoolStats();
-      
+
       // Determine health status
       let status: HealthCheckResult['status'] = 'healthy';
-      
+
       if (poolStats.waiting > 0 || poolStats.active / poolStats.total > 0.8) {
         status = 'degraded';
       }
-      
+
       if (!this.adapter.isConnected || poolStats.active === poolStats.total) {
         status = 'unhealthy';
       }
@@ -95,15 +95,16 @@ export class HealthChecker {
       // Notify if health changed
       if (this.lastResult?.status !== result.status) {
         this.options.onHealthChange(result);
-        this.options.logger.info(`Health status changed: ${this.lastResult?.status} -> ${result.status}`);
+        this.options.logger.info(
+          `Health status changed: ${this.lastResult?.status} -> ${result.status}`,
+        );
       }
 
       this.lastResult = result;
       return result;
-
     } catch (error) {
       this.consecutiveFailures++;
-      
+
       const result: HealthCheckResult = {
         status: 'unhealthy',
         latency: Date.now() - start,
@@ -171,19 +172,19 @@ export class HealthChecker {
     return this.consecutiveFailures;
   }
 
-  async waitForHealthy(maxWaitTime = 60000): Promise<void> {
+  async waitForHealthy(maxWaitTime = 60_000): Promise<void> {
     const startTime = Date.now();
-    
+
     while (Date.now() - startTime < maxWaitTime) {
       const result = await this.check();
-      
+
       if (result.status === 'healthy') {
         return;
       }
-      
+
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    
+
     throw new Error(`Health check did not become healthy within ${maxWaitTime}ms`);
   }
 }

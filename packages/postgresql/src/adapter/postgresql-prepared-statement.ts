@@ -1,5 +1,7 @@
-import { PoolClient, QueryResult as PgQueryResult } from 'pg';
-import { PreparedStatement, QueryResult, QueryError } from '@db-bridge/core';
+import { QueryError } from '@db-bridge/core';
+
+import type { PreparedStatement, QueryResult } from '@db-bridge/core';
+import type { PoolClient, QueryResult as PgQueryResult } from 'pg';
 
 export class PostgreSQLPreparedStatement<T = unknown> implements PreparedStatement<T> {
   private released = false;
@@ -27,6 +29,7 @@ export class PostgreSQLPreparedStatement<T = unknown> implements PreparedStateme
       return {
         rows: result.rows as T[],
         rowCount: result.rowCount || 0,
+        affectedRows: result.rowCount || 0,
         fields: result.fields?.map((field) => ({
           name: field.name,
           type: field.dataTypeID.toString(),
@@ -64,5 +67,12 @@ export class PostgreSQLPreparedStatement<T = unknown> implements PreparedStateme
         error as Error,
       );
     }
+  }
+
+  /**
+   * Alias for release() - industry standard naming
+   */
+  async close(): Promise<void> {
+    return this.release();
   }
 }

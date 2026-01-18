@@ -1,6 +1,7 @@
 import { EventEmitter } from 'eventemitter3';
-import { DatabaseAdapter } from '../interfaces';
-import { QueryOptions, QueryResult, QueryParams } from '../types';
+
+import type { DatabaseAdapter } from '../interfaces';
+import type { QueryOptions, QueryResult, QueryParams } from '../types';
 
 export interface PerformanceTrace {
   id: string;
@@ -62,17 +63,19 @@ export class PerformanceMonitor extends EventEmitter {
       slowQueryThreshold?: number;
       maxTraces?: number;
       enabled?: boolean;
-    } = {}
+    } = {},
   ) {
     super();
     this.adapter = adapter;
     this.slowQueryThreshold = options.slowQueryThreshold ?? 1000; // 1 second
-    this.maxTraces = options.maxTraces ?? 10000;
+    this.maxTraces = options.maxTraces ?? 10_000;
     this.enabled = options.enabled ?? true;
   }
 
   startTrace(operation: string, metadata: Record<string, unknown> = {}, parent?: string): string {
-    if (!this.enabled) return '';
+    if (!this.enabled) {
+      return '';
+    }
 
     const id = this.generateTraceId();
     const trace: PerformanceTrace = {
@@ -100,7 +103,7 @@ export class PerformanceMonitor extends EventEmitter {
       const oldestTraces = Array.from(this.traces.entries())
         .sort(([, a], [, b]) => a.startTime - b.startTime)
         .slice(0, Math.floor(this.maxTraces * 0.1));
-      
+
       oldestTraces.forEach(([id]) => this.traces.delete(id));
     }
 
@@ -109,10 +112,14 @@ export class PerformanceMonitor extends EventEmitter {
   }
 
   endTrace(id: string, error?: Error): void {
-    if (!this.enabled || !id) return;
+    if (!this.enabled || !id) {
+      return;
+    }
 
     const trace = this.traces.get(id);
-    if (!trace) return;
+    if (!trace) {
+      return;
+    }
 
     trace.endTime = performance.now();
     trace.duration = trace.endTime - trace.startTime;
@@ -122,12 +129,12 @@ export class PerformanceMonitor extends EventEmitter {
     // Check for slow operations
     if (trace.duration > this.slowQueryThreshold && trace.operation.includes('query')) {
       const queryInfo = {
-        query: trace.metadata['sql'] as string || '',
+        query: (trace.metadata['sql'] as string) || '',
         duration: trace.duration,
         timestamp: new Date(),
         params: trace.metadata['params'] as unknown[],
       };
-      
+
       this.slowQueries.push(queryInfo);
       this.emit('slowQuery', queryInfo);
 
@@ -141,11 +148,13 @@ export class PerformanceMonitor extends EventEmitter {
   }
 
   async explainQuery(sql: string, params?: QueryParams): Promise<QueryPlan | null> {
-    if (!this.enabled) return null;
+    if (!this.enabled) {
+      return null;
+    }
 
     try {
       let explainSql: string;
-      
+
       // Database-specific EXPLAIN syntax
       if (this.adapter.name === 'PostgreSQL') {
         explainSql = `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${sql}`;
@@ -156,7 +165,7 @@ export class PerformanceMonitor extends EventEmitter {
       }
 
       const result = await this.adapter.query(explainSql, params);
-      
+
       if (result.rows.length > 0) {
         const plan = this.parseExplainResult(result.rows[0] as Record<string, unknown>);
         if (plan) {
@@ -175,9 +184,9 @@ export class PerformanceMonitor extends EventEmitter {
   private parseExplainResult(result: Record<string, unknown>): QueryPlan | null {
     try {
       if (this.adapter.name === 'PostgreSQL') {
-        const planData = result['QUERY PLAN'] as any[] || result;
+        const planData = (result['QUERY PLAN'] as any[]) || result;
         const plan = Array.isArray(planData) ? planData[0] : planData;
-        
+
         return {
           query: plan.Query || '',
           plan: JSON.stringify(plan.Plan || plan),
@@ -190,7 +199,7 @@ export class PerformanceMonitor extends EventEmitter {
       } else if (this.adapter.name === 'MySQL') {
         const plan = typeof result === 'string' ? JSON.parse(result as string) : result;
         const queryBlock = plan.query_block || {};
-        
+
         return {
           query: '',
           plan: JSON.stringify(plan),
@@ -199,20 +208,21 @@ export class PerformanceMonitor extends EventEmitter {
           width: 0,
         };
       }
-    } catch (error) {
+    } catch {
       // Failed to parse
     }
 
     return null;
   }
 
-  async analyzePerformance(duration: number = 3600000): Promise<PerformanceReport> {
+  async analyzePerformance(duration: number = 3_600_000): Promise<PerformanceReport> {
     const now = performance.now();
     const cutoff = now - duration;
-    
+
     // Get recent traces
-    const recentTraces = Array.from(this.traces.values())
-      .filter((trace) => trace.startTime > cutoff && trace.status === 'completed');
+    const recentTraces = Array.from(this.traces.values()).filter(
+      (trace) => trace.startTime > cutoff && trace.status === 'completed',
+    );
 
     // Group by operation
     const operationStats = new Map<string, { totalTime: number; count: number }>();
@@ -241,28 +251,25 @@ export class PerformanceMonitor extends EventEmitter {
     const recommendations: string[] = [];
 
     // Check for missing indexes
-    const slowSelects = this.slowQueries.filter((q) => 
-      q.query.toUpperCase().includes('SELECT') && q.duration > 2000
+    const slowSelects = this.slowQueries.filter(
+      (q) => q.query.toUpperCase().includes('SELECT') && q.duration > 2000,
     );
     if (slowSelects.length > 5) {
-      recommendations.push(
-        'Consider adding indexes. Multiple slow SELECT queries detected.'
-      );
+      recommendations.push('Consider adding indexes. Multiple slow SELECT queries detected.');
     }
 
     // Check for N+1 queries
     const queryGroups = new Map<string, number>();
     this.slowQueries.forEach((q) => {
-      const normalized = q.query.replace(/\d+/g, '?').replace(/\s+/g, ' ');
+      const normalized = q.query.replaceAll(/\d+/g, '?').replaceAll(/\s+/g, ' ');
       queryGroups.set(normalized, (queryGroups.get(normalized) || 0) + 1);
     });
 
-    const repetitiveQueries = Array.from(queryGroups.entries())
-      .filter(([, count]) => count > 10);
-    
+    const repetitiveQueries = Array.from(queryGroups.entries()).filter(([, count]) => count > 10);
+
     if (repetitiveQueries.length > 0) {
       recommendations.push(
-        'Possible N+1 query problem detected. Consider using JOINs or batch loading.'
+        'Possible N+1 query problem detected. Consider using JOINs or batch loading.',
       );
     }
 
@@ -270,17 +277,17 @@ export class PerformanceMonitor extends EventEmitter {
     const poolStats = this.adapter.getPoolStats();
     if (poolStats.waiting > 0) {
       recommendations.push(
-        `Connection pool exhaustion detected. Consider increasing pool size (current: ${poolStats.total}).`
+        `Connection pool exhaustion detected. Consider increasing pool size (current: ${poolStats.total}).`,
       );
     }
 
     // Check for long transactions
     const longTransactions = recentTraces.filter(
-      (t) => t.operation.includes('transaction') && (t.duration || 0) > 5000
+      (t) => t.operation.includes('transaction') && (t.duration || 0) > 5000,
     );
     if (longTransactions.length > 0) {
       recommendations.push(
-        'Long-running transactions detected. Consider breaking them into smaller units.'
+        'Long-running transactions detected. Consider breaking them into smaller units.',
       );
     }
 
@@ -298,7 +305,7 @@ export class PerformanceMonitor extends EventEmitter {
     adapter.query = async <T = unknown>(
       sql: string,
       params?: QueryParams,
-      options?: QueryOptions
+      options?: QueryOptions,
     ): Promise<QueryResult<T>> => {
       const traceId = this.startTrace('query', { sql, params });
 
@@ -308,7 +315,7 @@ export class PerformanceMonitor extends EventEmitter {
 
         // Analyze slow queries
         const trace = this.traces.get(traceId);
-        if (trace && trace.duration && trace.duration > this.slowQueryThreshold) {
+        if (trace?.duration && trace.duration > this.slowQueryThreshold) {
           this.explainQuery(sql, params).catch(() => {
             // Ignore explain errors
           });
@@ -343,7 +350,7 @@ export class PerformanceMonitor extends EventEmitter {
   }
 
   private generateTraceId(): string {
-    return `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `trace_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   }
 
   getTraces(filter?: {

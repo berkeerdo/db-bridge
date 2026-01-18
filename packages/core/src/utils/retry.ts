@@ -12,7 +12,7 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   maxRetries: 3,
   retryDelay: 1000,
   backoffMultiplier: 2,
-  maxRetryDelay: 30000,
+  maxRetryDelay: 30_000,
   shouldRetry: (error: Error) => {
     const retryableCodes = ['ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'ENETUNREACH'];
     return retryableCodes.some((code) => error.message.includes(code));

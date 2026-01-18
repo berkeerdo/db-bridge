@@ -1,5 +1,6 @@
 import { StreamReadTrait } from './stream-read-trait';
-import { StreamEntry } from './stream-base-trait';
+
+import type { StreamEntry } from './stream-base-trait';
 
 export interface ConsumerGroupInfo {
   name: string;
@@ -13,11 +14,11 @@ export class StreamConsumerTrait extends StreamReadTrait {
     key: string,
     groupName: string,
     id: string = '$',
-    mkstream = false
+    mkstream = false,
   ): Promise<void> {
     try {
       const args: (string | boolean)[] = [key, groupName, id];
-      
+
       if (mkstream) {
         args.push('MKSTREAM');
       }
@@ -60,7 +61,7 @@ export class StreamConsumerTrait extends StreamReadTrait {
       count?: number;
       block?: number;
       noack?: boolean;
-    }
+    },
   ): Promise<Array<[string, StreamEntry[]]>> {
     try {
       const args: (string | number)[] = ['GROUP', groupName, consumerName];
@@ -76,16 +77,18 @@ export class StreamConsumerTrait extends StreamReadTrait {
       }
 
       args.push('STREAMS');
-      
+
       const keys = Object.keys(streams);
       const ids = Object.values(streams);
       args.push(...keys, ...ids);
 
       const result = await (this.client as any).xreadgroup(...args);
-      
-      if (!result) return [];
 
-      return this.parseStreamResults(result as any);
+      if (!result) {
+        return [];
+      }
+
+      return this.parseStreamResults(result);
     } catch (error) {
       this.throwError('Failed to read from consumer group', undefined, error as Error);
     }
@@ -107,20 +110,20 @@ export class StreamConsumerTrait extends StreamReadTrait {
       end?: string;
       count?: number;
       consumer?: string;
-    }
+    },
   ): Promise<any> {
     try {
       const args: (string | number)[] = [key, groupName];
 
       if (options?.start && options?.end) {
         args.push(options.start, options.end, options.count || 10);
-        
+
         if (options.consumer) {
           args.push(options.consumer);
         }
       }
 
-      return await (this.client as any).xpending(...args);
+      return await ((this.client as any).xpending(...args) as Promise<unknown>);
     } catch (error) {
       this.throwError(`Failed to get pending messages for group ${groupName}`, key, error as Error);
     }
@@ -138,7 +141,7 @@ export class StreamConsumerTrait extends StreamReadTrait {
       retrycount?: number;
       force?: boolean;
       justid?: boolean;
-    }
+    },
   ): Promise<StreamEntry[] | string[]> {
     try {
       const args: (string | number)[] = [key, groupName, consumerName, minIdleTime, ...ids];
@@ -160,12 +163,12 @@ export class StreamConsumerTrait extends StreamReadTrait {
       }
 
       const result = await (this.client as any).xclaim(...args);
-      
+
       if (options?.justid) {
         return result as string[];
       }
-      
-      return this.parseEntries(result as any);
+
+      return this.parseEntries(result);
     } catch (error) {
       this.throwError(`Failed to claim messages for consumer ${consumerName}`, key, error as Error);
     }

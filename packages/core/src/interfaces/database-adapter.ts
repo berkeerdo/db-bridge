@@ -1,4 +1,4 @@
-import {
+import type {
   ConnectionConfig,
   QueryResult,
   QueryOptions,
@@ -8,7 +8,7 @@ import {
   PreparedStatement,
   PoolStats,
 } from '../types';
-import { QueryBuilder } from './query-builder';
+import type { QueryBuilder } from './query-builder';
 
 export interface DatabaseAdapter {
   readonly name: string;
@@ -17,30 +17,30 @@ export interface DatabaseAdapter {
 
   connect(config: ConnectionConfig): Promise<void>;
   disconnect(): Promise<void>;
-  
+
   query<T = unknown>(
     sql: string,
     params?: QueryParams,
     options?: QueryOptions,
   ): Promise<QueryResult<T>>;
-  
+
   execute<T = unknown>(
     sql: string,
     params?: QueryParams,
     options?: QueryOptions,
   ): Promise<QueryResult<T>>;
-  
+
   prepare<T = unknown>(sql: string, name?: string): Promise<PreparedStatement<T>>;
-  
+
   beginTransaction(options?: TransactionOptions): Promise<Transaction>;
-  
+
   getPoolStats(): PoolStats;
-  
+
   ping(): Promise<boolean>;
-  
+
   escape(value: unknown): string;
-  
+
   escapeIdentifier(identifier: string): string;
-  
+
   createQueryBuilder<T = unknown>(): QueryBuilder<T>;
 }

@@ -37,8 +37,8 @@ const db = new DBBridge({
     host: 'localhost',
     user: 'root',
     password: '',
-    database: 'my_app'
-  }
+    database: 'my_app',
+  },
 });
 
 // Connect
@@ -62,7 +62,7 @@ const mysql = DBBridge.mysql({
   host: 'localhost',
   user: 'root',
   password: '',
-  database: 'my_app'
+  database: 'my_app',
 });
 
 // PostgreSQL
@@ -70,13 +70,13 @@ const postgres = DBBridge.postgresql({
   host: 'localhost',
   user: 'postgres',
   password: 'password',
-  database: 'my_app'
+  database: 'my_app',
 });
 
 // Redis
 const redis = DBBridge.redis({
   host: 'localhost',
-  port: 6379
+  port: 6379,
 });
 ```
 
@@ -89,14 +89,14 @@ const redis = DBBridge.redis({
 const user = await db.table('users').insert({
   name: 'John Doe',
   email: 'john@example.com',
-  age: 30
+  age: 30,
 });
 console.log('New user ID:', user.id);
 
 // Multiple inserts
 const users = await db.table('users').insert([
   { name: 'Jane', email: 'jane@example.com' },
-  { name: 'Bob', email: 'bob@example.com' }
+  { name: 'Bob', email: 'bob@example.com' },
 ]);
 ```
 
@@ -110,53 +110,36 @@ const allUsers = await db.table('users').get();
 const firstUser = await db.table('users').first();
 
 // Get with conditions
-const adults = await db.table('users')
-  .where('age', '>=', 18)
-  .get();
+const adults = await db.table('users').where('age', '>=', 18).get();
 
 // Get specific columns
-const names = await db.table('users')
-  .select('id', 'name')
-  .get();
+const names = await db.table('users').select('id', 'name').get();
 
 // Get with ordering and limit
-const recentUsers = await db.table('users')
-  .orderBy('created_at', 'desc')
-  .limit(10)
-  .get();
+const recentUsers = await db.table('users').orderBy('created_at', 'desc').limit(10).get();
 ```
 
 ### Update
 
 ```typescript
 // Update by ID
-await db.table('users')
-  .where('id', 1)
-  .update({ name: 'John Smith' });
+await db.table('users').where('id', 1).update({ name: 'John Smith' });
 
 // Update multiple records
-await db.table('users')
-  .where('status', 'pending')
-  .update({ status: 'active' });
+await db.table('users').where('status', 'pending').update({ status: 'active' });
 
 // Increment/Decrement
-await db.table('products')
-  .where('id', 1)
-  .increment('views', 1);
+await db.table('products').where('id', 1).increment('views', 1);
 ```
 
 ### Delete
 
 ```typescript
 // Delete by ID
-await db.table('users')
-  .where('id', 1)
-  .delete();
+await db.table('users').where('id', 1).delete();
 
 // Delete multiple
-await db.table('users')
-  .where('last_login', '<', '2023-01-01')
-  .delete();
+await db.table('users').where('last_login', '<', '2023-01-01').delete();
 ```
 
 ## Working with Relationships
@@ -164,30 +147,28 @@ await db.table('users')
 ### Joins
 
 ```typescript
-// Inner join
-const ordersWithCustomers = await db.table('orders')
-  .join('customers', 'orders.customer_id', '=', 'customers.id')
+// Inner join - pass table and ON condition as a string
+const ordersWithCustomers = await db
+  .table('orders')
+  .join('customers', 'orders.customer_id = customers.id')
   .select('orders.*', 'customers.name as customer_name')
   .get();
 
 // Left join
-const productsWithReviews = await db.table('products')
-  .leftJoin('reviews', 'products.id', '=', 'reviews.product_id')
+const productsWithReviews = await db
+  .table('products')
+  .leftJoin('reviews', 'products.id = reviews.product_id')
   .select('products.*', 'AVG(reviews.rating) as avg_rating')
   .groupBy('products.id')
   .get();
 
 // Multiple joins
-const orderDetails = await db.table('orders')
-  .join('customers', 'orders.customer_id', '=', 'customers.id')
-  .join('order_items', 'orders.id', '=', 'order_items.order_id')
-  .join('products', 'order_items.product_id', '=', 'products.id')
-  .select(
-    'orders.id',
-    'customers.name',
-    'products.title',
-    'order_items.quantity'
-  )
+const orderDetails = await db
+  .table('orders')
+  .join('customers', 'orders.customer_id = customers.id')
+  .join('order_items', 'orders.id = order_items.order_id')
+  .join('products', 'order_items.product_id = products.id')
+  .select('orders.id', 'customers.name', 'products.title', 'order_items.quantity')
   .get();
 ```
 
@@ -201,24 +182,20 @@ try {
     // Create order
     const order = await trx.table('orders').insert({
       customer_id: 1,
-      total: 150.00,
-      status: 'pending'
+      total: 150.0,
+      status: 'pending',
     });
 
     // Add order items
     await trx.table('order_items').insert([
-      { order_id: order.id, product_id: 1, quantity: 2, price: 50.00 },
-      { order_id: order.id, product_id: 2, quantity: 1, price: 50.00 }
+      { order_id: order.id, product_id: 1, quantity: 2, price: 50.0 },
+      { order_id: order.id, product_id: 2, quantity: 1, price: 50.0 },
     ]);
 
     // Update inventory
-    await trx.table('products')
-      .where('id', 1)
-      .decrement('stock', 2);
-    
-    await trx.table('products')
-      .where('id', 2)
-      .decrement('stock', 1);
+    await trx.table('products').where('id', 1).decrement('stock', 2);
+
+    await trx.table('products').where('id', 2).decrement('stock', 1);
 
     // All queries succeed or all fail
   });
@@ -230,27 +207,34 @@ try {
 
 ## Using Cache
 
-Enable caching for better performance:
+Enable caching for better performance using the query builder's cache methods:
 
 ```typescript
-// Create database with cache enabled
-const db = DBBridge.withCache('mysql', {
-  host: 'localhost',
-  database: 'my_app'
-});
+import { RedisAdapter } from '@db-bridge/redis';
+import { createModularQueryBuilder } from '@db-bridge/core';
 
-// Cache query results
-const popularProducts = await db.cached('popular-products', async () => {
-  return db.table('products')
-    .where('featured', true)
-    .orderBy('sales', 'desc')
-    .limit(10)
-    .get();
-}, 3600); // Cache for 1 hour
+// Set up cache with Redis
+const redis = new RedisAdapter({ keyPrefix: 'cache:' });
+await redis.connect({ host: 'localhost', port: 6379 });
 
-// Clear cache when data changes
-await db.table('products').insert({ ... });
-await db.clearCache('popular-products');
+// Cache query results with TTL (in seconds)
+const popularProducts = await db
+  .table('products')
+  .where('featured', true)
+  .orderByDesc('sales')
+  .limit(10)
+  .cache(3600) // Cache for 1 hour
+  .get();
+
+// Cache with custom key
+const user = await db
+  .table('users')
+  .where('id', userId)
+  .cache({ key: `user:${userId}`, ttl: 1800 })
+  .first();
+
+// Disable cache for real-time data
+const liveStats = await db.table('analytics').noCache().get();
 ```
 
 ## Working with Redis
@@ -277,7 +261,7 @@ await redis.redis.hset('user:2', 'email', 'jane@example.com');
 await redis.redis.hsetObject('user:3', {
   name: 'Bob',
   email: 'bob@example.com',
-  role: 'admin'
+  role: 'admin',
 });
 
 // Lists (queues)
@@ -328,11 +312,11 @@ const db = new DBBridge({
     port: parseInt(process.env.DB_PORT || '3306'),
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'my_app'
+    database: process.env.DB_NAME || 'my_app',
   },
   options: {
-    logging: process.env.NODE_ENV === 'development'
-  }
+    logging: process.env.NODE_ENV === 'development',
+  },
 });
 ```
 

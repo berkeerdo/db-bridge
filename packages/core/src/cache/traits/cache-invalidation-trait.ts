@@ -12,13 +12,13 @@ export class CacheInvalidationTrait extends CacheOperationsTrait {
       try {
         // Invalidate by pattern
         const keys = await this.cache.keys(pattern);
-        
+
         for (const key of keys) {
           const deleted = await this.cache.delete(key);
           if (deleted) {
             invalidated++;
             this.queryCache.delete(key);
-            
+
             // Remove from tag index
             this.tagIndex.forEach((keySet) => {
               keySet.delete(key);
@@ -29,7 +29,7 @@ export class CacheInvalidationTrait extends CacheOperationsTrait {
         // Invalidate by tags
         if (this.tagIndex.has(pattern)) {
           const taggedKeys = this.tagIndex.get(pattern)!;
-          
+
           for (const key of taggedKeys) {
             const deleted = await this.cache.delete(key);
             if (deleted) {
@@ -37,7 +37,7 @@ export class CacheInvalidationTrait extends CacheOperationsTrait {
               this.queryCache.delete(key);
             }
           }
-          
+
           this.tagIndex.delete(pattern);
         }
       } catch (error) {
@@ -70,10 +70,10 @@ export class CacheInvalidationTrait extends CacheOperationsTrait {
     await this.cache.clear();
     this.queryCache.clear();
     this.tagIndex.clear();
-    
+
     this.statistics.totalEvicted += this.statistics.totalCached;
     this.statistics.totalCached = 0;
-    
+
     this.emit('cacheCleared');
     this.logger?.info('Cache cleared');
   }

@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync } from 'node:crypto';
 
 export interface CryptoConfig {
   algorithm?: string;
@@ -28,22 +28,26 @@ export class CryptoProvider {
   constructor(config: CryptoConfig = {}) {
     const algorithm = config.algorithm || 'aes-256-gcm';
     // ChaCha20-Poly1305 requires 12 byte IV
-    const ivLength = algorithm === 'chacha20-poly1305' ? 12 : (config.ivLength || 16);
-    
+    const ivLength = algorithm === 'chacha20-poly1305' ? 12 : config.ivLength || 16;
+
     // Determine key length based on algorithm
     let keyLength = config.keyLength || 32;
     if (!config.keyLength) {
-      if (algorithm.includes('128')) keyLength = 16;
-      else if (algorithm.includes('192')) keyLength = 24;
-      else if (algorithm.includes('256')) keyLength = 32;
+      if (algorithm.includes('128')) {
+        keyLength = 16;
+      } else if (algorithm.includes('192')) {
+        keyLength = 24;
+      } else if (algorithm.includes('256')) {
+        keyLength = 32;
+      }
     }
-    
+
     this.config = {
       algorithm,
       keyLength,
       ivLength,
       saltLength: config.saltLength || 32,
-      iterations: config.iterations || 100000,
+      iterations: config.iterations || 100_000,
       digest: config.digest || 'sha256',
     };
   }
@@ -54,22 +58,22 @@ export class CryptoProvider {
       salt,
       this.config.iterations,
       this.config.keyLength,
-      this.config.digest
+      this.config.digest,
     );
   }
 
   encrypt(data: string, options: EncryptionOptions = {}): EncryptedData {
     const salt = options.salt || randomBytes(this.config.saltLength);
-    const key = options.key 
+    const key = options.key
       ? Buffer.from(options.key, 'hex')
       : this.deriveKey(process.env['DB_BRIDGE_ENCRYPTION_KEY'] || 'default-key', salt);
-    
+
     const iv = randomBytes(this.config.ivLength);
     const cipher = createCipheriv(this.config.algorithm, key, iv);
-    
+
     let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    
+
     const result: EncryptedData = {
       encrypted,
       salt: salt.toString('hex'),
@@ -86,21 +90,24 @@ export class CryptoProvider {
 
   decrypt(encryptedData: EncryptedData, options: EncryptionOptions = {}): string {
     const salt = Buffer.from(encryptedData.salt, 'hex');
-    const key = options.key 
+    const key = options.key
       ? Buffer.from(options.key, 'hex')
       : this.deriveKey(process.env['DB_BRIDGE_ENCRYPTION_KEY'] || 'default-key', salt);
-    
+
     const iv = Buffer.from(encryptedData.iv, 'hex');
     const decipher = createDecipheriv(this.config.algorithm, key, iv);
-    
+
     // For authenticated encryption modes (GCM, Poly1305), set the auth tag
-    if ((this.config.algorithm.includes('gcm') || this.config.algorithm.includes('poly1305')) && encryptedData.authTag) {
+    if (
+      (this.config.algorithm.includes('gcm') || this.config.algorithm.includes('poly1305')) &&
+      encryptedData.authTag
+    ) {
       (decipher as any).setAuthTag(Buffer.from(encryptedData.authTag, 'hex'));
     }
-    
+
     let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     return decrypted;
   }
 
@@ -111,10 +118,10 @@ export class CryptoProvider {
     if (value === null || value === undefined) {
       return '';
     }
-    
+
     const data = typeof value === 'string' ? value : JSON.stringify(value);
     const encrypted = this.encrypt(data);
-    
+
     // Store as a single string in format: algorithm:salt:iv:authTag:encrypted
     return [
       this.config.algorithm,
@@ -139,7 +146,7 @@ export class CryptoProvider {
     }
 
     const [algorithm, salt, iv, authTag, encrypted] = parts;
-    
+
     // Verify algorithm matches
     if (algorithm !== this.config.algorithm) {
       throw new Error(`Algorithm mismatch: expected ${this.config.algorithm}, got ${algorithm}`);
@@ -153,7 +160,7 @@ export class CryptoProvider {
     };
 
     const decrypted = this.decrypt(encryptedData);
-    
+
     // Try to parse as JSON, otherwise return as string
     try {
       return JSON.parse(decrypted);
@@ -173,7 +180,7 @@ export class CryptoProvider {
    * Hash a value using SHA-256 (one-way)
    */
   hash(value: string): string {
-    const hash = require('crypto').createHash('sha256');
+    const hash = require('node:crypto').createHash('sha256');
     hash.update(value);
     return hash.digest('hex');
   }
@@ -200,4 +207,4 @@ export const CryptoAlgorithms = {
   CHACHA20_POLY1305: 'chacha20-poly1305',
 } as const;
 
-export type CryptoAlgorithm = typeof CryptoAlgorithms[keyof typeof CryptoAlgorithms];
+export type CryptoAlgorithm = (typeof CryptoAlgorithms)[keyof typeof CryptoAlgorithms];

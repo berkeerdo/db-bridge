@@ -1,17 +1,21 @@
 import { EventEmitter } from 'eventemitter3';
-import { DatabaseAdapter, CacheAdapter } from '../interfaces';
-import { 
-  QueryResult, 
-  QueryParams, 
+
+import { SmartCacheStrategy } from './cache-strategy';
+import { ModularCacheManager } from './modular-cache-manager';
+
+import type { CacheStrategy, QueryCacheOptions } from './cache-strategy';
+import type { DatabaseAdapter, CacheAdapter } from '../interfaces';
+import type {
+  QueryResult,
+  QueryParams,
   QueryOptions,
   Transaction,
   TransactionOptions,
   PreparedStatement,
   PoolStats,
   ConnectionConfig,
-  Logger
+  Logger,
 } from '../types';
-import { CacheManager, CacheStrategy, SmartCacheStrategy, CacheManagerOptions } from './cache-manager';
 
 export interface CachedAdapterOptions {
   adapter: DatabaseAdapter;
@@ -36,7 +40,7 @@ export interface CachedAdapterOptions {
  */
 export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
   private adapter: DatabaseAdapter;
-  private cacheManager: CacheManager;
+  private cacheManager: ModularCacheManager;
   private cacheableCommands: Set<string>;
   private defaultTTL: number;
   private cacheEmptyResults: boolean;
@@ -56,7 +60,7 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
     this.warmupQueries = options.warmupQueries;
 
     // Create cache manager with strategy
-    this.cacheManager = new CacheManager(options.cache, {
+    this.cacheManager = new ModularCacheManager(options.cache, {
       strategy: options.strategy || new SmartCacheStrategy(),
       logger: this.logger,
       enabled: options.enabled ?? true,
@@ -66,7 +70,7 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
     if ('on' in this.adapter && typeof this.adapter.on === 'function') {
       this.adapter.on('connect', (...args: unknown[]) => {
         this.emit('connect', ...args);
-        this.performWarmup();
+        void this.performWarmup();
       });
       this.adapter.on('disconnect', (...args: unknown[]) => this.emit('disconnect', ...args));
       this.adapter.on('error', (...args: unknown[]) => this.emit('error', ...args));
@@ -87,8 +91,8 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
     if ('on' in this.adapter && typeof this.adapter.on === 'function') {
       this.adapter.on('query', (data: any) => {
         if (data.command && this.isWriteCommand(data.command)) {
-          this.invalidateRelatedCache(data.sql).catch((err: Error) => {
-            this.logger?.error('Cache invalidation error', err);
+          this.invalidateRelatedCache(data.sql).catch((error: Error) => {
+            this.logger?.error('Cache invalidation error', error);
           });
         }
       });
@@ -119,35 +123,31 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
   async query<T = unknown>(
     sql: string,
     params?: QueryParams,
-    options?: QueryOptions
+    options?: QueryOptions,
   ): Promise<QueryResult<T>> {
     const command = this.extractCommand(sql);
-    
+
     // Don't cache if:
     // 1. Cache is disabled in options
     // 2. Command is not cacheable
     // 3. It's part of a transaction
-    if (
-      options?.cache === false ||
-      !this.shouldCache(command, options) ||
-      options?.transaction
-    ) {
+    if (options?.cache === false || !this.shouldCache(command, options) || options?.transaction) {
       return this.adapter.query<T>(sql, params, options);
     }
 
-    const cacheOptions: CacheManagerOptions = typeof options?.cache === 'object' ? options.cache : {};
-    
+    const cacheOptions: QueryCacheOptions = typeof options?.cache === 'object' ? options.cache : {};
+
     try {
       // Try to get from cache
       const cached = await this.cacheManager.get<T>(sql, params as unknown[], cacheOptions);
-      
+
       if (cached) {
         // Update cache statistics for smart strategy
         const strategy = (this.cacheManager as any).strategy;
         if (strategy instanceof SmartCacheStrategy) {
           strategy.recordQueryExecution(sql, 0); // 0ms for cache hit
         }
-        
+
         return cached;
       }
 
@@ -177,20 +177,20 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
           rowCount: 0,
           error: error as Error,
         } as QueryResult<T>;
-        
+
         await this.cacheManager.set(sql, params as unknown[], errorResult, {
           ...cacheOptions,
           ttl: 60, // Cache errors for 1 minute
         });
       }
-      
+
       throw error;
     }
   }
 
   async beginTransaction(options?: TransactionOptions): Promise<Transaction> {
     const transaction = await this.adapter.beginTransaction(options);
-    
+
     // Wrap transaction to invalidate cache on commit/rollback
     const originalCommit = transaction.commit.bind(transaction);
     const originalRollback = transaction.rollback.bind(transaction);
@@ -234,7 +234,7 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
   execute<T = unknown>(
     sql: string,
     params?: QueryParams,
-    options?: QueryOptions
+    options?: QueryOptions,
   ): Promise<QueryResult<T>> {
     // Execute is same as query for most adapters
     return this.query<T>(sql, params, options);
@@ -244,7 +244,7 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
     return this.adapter.createQueryBuilder<T>();
   }
 
-  getCacheManager(): CacheManager {
+  getCacheManager(): ModularCacheManager {
     return this.cacheManager;
   }
 
@@ -257,20 +257,18 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
 
     for (const query of this.warmupQueries) {
       try {
-        const result = await this.query(
-          query.sql,
-          query.params as QueryParams,
-          { cache: { ttl: query.ttl || this.defaultTTL } }
-        );
-        
-        this.logger?.debug('Warmup query cached', { 
+        const result = await this.query(query.sql, query.params as QueryParams, {
+          cache: { ttl: query.ttl || this.defaultTTL },
+        });
+
+        this.logger?.debug('Warmup query cached', {
           sql: query.sql,
-          rowCount: result.rowCount 
+          rowCount: result.rowCount,
         });
       } catch (error) {
-        this.logger?.error('Warmup query failed', { 
-          sql: query.sql, 
-          error 
+        this.logger?.error('Warmup query failed', {
+          sql: query.sql,
+          error,
         });
       }
     }
@@ -282,16 +280,18 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
     if (this.warmupQueries && this.warmupQueries.length > 0) {
       // Perform warmup asynchronously after connection
       setTimeout(() => {
-        this.warmupCache().catch(err => {
-          this.logger?.error('Cache warmup error', err);
+        this.warmupCache().catch((error) => {
+          this.logger?.error('Cache warmup error', error);
         });
       }, 1000); // Wait 1 second after connection
     }
   }
 
   private shouldCache(command: string, options?: QueryOptions): boolean {
-    if (!command) return false;
-    
+    if (!command) {
+      return false;
+    }
+
     // Check if command is cacheable
     if (!this.cacheableCommands.has(command)) {
       return false;
@@ -333,9 +333,8 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
     const tables = this.extractTableNames(sql);
     const patterns: string[] = [];
 
-    tables.forEach(table => {
-      patterns.push(`*${table}*`);
-      patterns.push(`table:${table}:*`);
+    tables.forEach((table) => {
+      patterns.push(`*${table}*`, `table:${table}:*`);
     });
 
     if (patterns.length > 0) {
@@ -346,17 +345,17 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
   private extractTableNames(sql: string): string[] {
     const tables: string[] = [];
     const patterns = [
-      /FROM\s+`?(\w+)`?/gi,
-      /JOIN\s+`?(\w+)`?/gi,
-      /UPDATE\s+`?(\w+)`?/gi,
-      /INSERT\s+INTO\s+`?(\w+)`?/gi,
-      /DELETE\s+FROM\s+`?(\w+)`?/gi,
-      /CREATE\s+TABLE\s+`?(\w+)`?/gi,
-      /DROP\s+TABLE\s+`?(\w+)`?/gi,
-      /TRUNCATE\s+TABLE?\s+`?(\w+)`?/gi,
+      /from\s+`?(\w+)`?/gi,
+      /join\s+`?(\w+)`?/gi,
+      /update\s+`?(\w+)`?/gi,
+      /insert\s+into\s+`?(\w+)`?/gi,
+      /delete\s+from\s+`?(\w+)`?/gi,
+      /create\s+table\s+`?(\w+)`?/gi,
+      /drop\s+table\s+`?(\w+)`?/gi,
+      /truncate\s+table?\s+`?(\w+)`?/gi,
     ];
 
-    patterns.forEach(pattern => {
+    patterns.forEach((pattern) => {
       let match;
       while ((match = pattern.exec(sql)) !== null) {
         if (match[1]) {
@@ -375,7 +374,7 @@ export class CachedAdapter extends EventEmitter implements DatabaseAdapter {
 export function createCachedAdapter(
   adapter: DatabaseAdapter,
   cache: CacheAdapter,
-  options?: Partial<CachedAdapterOptions>
+  options?: Partial<CachedAdapterOptions>,
 ): CachedAdapter {
   return new CachedAdapter({
     adapter,

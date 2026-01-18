@@ -1,13 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { DefaultCacheStrategy } from '../cache-manager';
-import { QueryResult } from '../../interfaces';
+
+import { DefaultCacheStrategy } from '../cache-strategy';
+
+import type { QueryResult } from '../../interfaces';
 
 describe('DefaultCacheStrategy', () => {
   const strategy = new DefaultCacheStrategy();
-  
+
   const mockResult: QueryResult = {
     rows: [{ id: 1, name: 'test' }],
-    rowCount: 1
+    rowCount: 1,
   };
 
   describe('shouldCache', () => {

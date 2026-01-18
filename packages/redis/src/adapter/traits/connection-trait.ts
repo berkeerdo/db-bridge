@@ -1,6 +1,8 @@
-import Redis, { RedisOptions } from 'ioredis';
-import { EventEmitter } from 'eventemitter3';
 import { ConnectionError, withTimeout } from '@db-bridge/core';
+import { EventEmitter } from 'eventemitter3';
+import Redis from 'ioredis';
+
+import type { RedisOptions } from 'ioredis';
 
 export interface ConnectionConfig {
   redis?: RedisOptions;
@@ -85,7 +87,9 @@ export class RedisConnectionManager extends EventEmitter {
   }
 
   private setupEventHandlers(): void {
-    if (!this.client) return;
+    if (!this.client) {
+      return;
+    }
 
     this.client.on('error', (error: Error) => {
       this.emit('error', error);

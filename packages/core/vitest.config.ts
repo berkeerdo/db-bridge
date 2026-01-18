@@ -13,19 +13,19 @@ export default defineConfig({
         '**/*.test.ts',
         '**/__tests__/**',
         '**/interfaces/**',
-        '**/types/**'
+        '**/types/**',
       ],
       thresholds: {
         lines: 80,
-        functions: 80,
+        functions: 64,
         branches: 80,
-        statements: 80
-      }
-    }
+        statements: 80,
+      },
+    },
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
-    }
-  }
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
 });

@@ -18,13 +18,14 @@ export interface PerformanceReport {
 }
 
 export class PerformanceAnalysisTrait extends QueryAnalysisTrait {
-  async analyzePerformance(duration: number = 3600000): Promise<PerformanceReport> {
+  async analyzePerformance(duration: number = 3_600_000): Promise<PerformanceReport> {
     const now = performance.now();
     const cutoff = now - duration;
-    
+
     // Get recent traces
-    const recentTraces = Array.from(this.traces.values())
-      .filter((trace) => trace.startTime > cutoff && trace.status === 'completed');
+    const recentTraces = Array.from(this.traces.values()).filter(
+      (trace) => trace.startTime > cutoff && trace.status === 'completed',
+    );
 
     // Group by operation
     const operationStats = new Map<string, { totalTime: number; count: number }>();
@@ -64,28 +65,25 @@ export class PerformanceAnalysisTrait extends QueryAnalysisTrait {
     const recommendations: string[] = [];
 
     // Check for missing indexes
-    const slowSelects = this.slowQueries.filter((q) => 
-      q.query.toUpperCase().includes('SELECT') && q.duration > 2000
+    const slowSelects = this.slowQueries.filter(
+      (q) => q.query.toUpperCase().includes('SELECT') && q.duration > 2000,
     );
     if (slowSelects.length > 5) {
-      recommendations.push(
-        'Consider adding indexes. Multiple slow SELECT queries detected.'
-      );
+      recommendations.push('Consider adding indexes. Multiple slow SELECT queries detected.');
     }
 
     // Check for N+1 queries
     const queryGroups = new Map<string, number>();
     this.slowQueries.forEach((q) => {
-      const normalized = q.query.replace(/\d+/g, '?').replace(/\s+/g, ' ');
+      const normalized = q.query.replaceAll(/\d+/g, '?').replaceAll(/\s+/g, ' ');
       queryGroups.set(normalized, (queryGroups.get(normalized) || 0) + 1);
     });
 
-    const repetitiveQueries = Array.from(queryGroups.entries())
-      .filter(([, count]) => count > 10);
-    
+    const repetitiveQueries = Array.from(queryGroups.entries()).filter(([, count]) => count > 10);
+
     if (repetitiveQueries.length > 0) {
       recommendations.push(
-        'Possible N+1 query problem detected. Consider using JOINs or batch loading.'
+        'Possible N+1 query problem detected. Consider using JOINs or batch loading.',
       );
     }
 
@@ -93,28 +91,28 @@ export class PerformanceAnalysisTrait extends QueryAnalysisTrait {
     const poolStats = this.adapter.getPoolStats();
     if (poolStats.waiting > 0) {
       recommendations.push(
-        `Connection pool exhaustion detected. Consider increasing pool size (current: ${poolStats.total}).`
+        `Connection pool exhaustion detected. Consider increasing pool size (current: ${poolStats.total}).`,
       );
     }
 
     // Check for long transactions
     const longTransactions = traces.filter(
-      (t) => t.operation.includes('transaction') && (t.duration || 0) > 5000
+      (t) => t.operation.includes('transaction') && (t.duration || 0) > 5000,
     );
     if (longTransactions.length > 0) {
       recommendations.push(
-        'Long-running transactions detected. Consider breaking them into smaller units.'
+        'Long-running transactions detected. Consider breaking them into smaller units.',
       );
     }
 
     return recommendations;
   }
 
-  getBottlenecks(limit = 10): Array<{operation: string; avgDuration: number; count: number}> {
+  getBottlenecks(limit = 10): Array<{ operation: string; avgDuration: number; count: number }> {
     const operationStats = new Map<string, { totalTime: number; count: number }>();
 
     Array.from(this.traces.values())
-      .filter(trace => trace.status === 'completed')
+      .filter((trace) => trace.status === 'completed')
       .forEach((trace) => {
         const stats = operationStats.get(trace.operation) || { totalTime: 0, count: 0 };
         stats.totalTime += trace.duration || 0;

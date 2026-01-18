@@ -7,23 +7,18 @@ export default defineConfig({
     environment: 'node',
     coverage: {
       reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'dist/',
-        '**/*.test.ts',
-        '**/__tests__/**'
-      ],
+      exclude: ['node_modules/', 'dist/', '**/*.test.ts', '**/__tests__/**'],
       thresholds: {
         lines: 80,
         functions: 80,
         branches: 80,
-        statements: 80
-      }
-    }
+        statements: 80,
+      },
+    },
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
-    }
-  }
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
 });

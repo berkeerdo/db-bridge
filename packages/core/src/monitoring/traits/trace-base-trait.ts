@@ -18,7 +18,7 @@ export class TraceBaseTrait extends EventEmitter {
   protected enabled = true;
   protected maxTraces: number;
 
-  constructor(maxTraces = 10000, enabled = true) {
+  constructor(maxTraces = 10_000, enabled = true) {
     super();
     this.maxTraces = maxTraces;
     this.enabled = enabled;
@@ -37,7 +37,7 @@ export class TraceBaseTrait extends EventEmitter {
   }
 
   protected generateTraceId(): string {
-    return `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `trace_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   }
 
   getTraces(filter?: {

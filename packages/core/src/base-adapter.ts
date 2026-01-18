@@ -1,9 +1,17 @@
 import { EventEmitter } from 'eventemitter3';
+
+import { NotImplementedError, ConnectionError, QueryError } from './errors';
 import {
-  DatabaseAdapter,
-  CacheAdapter,
-} from './interfaces';
-import {
+  validateConnectionConfig,
+  validateSQL,
+  retry,
+  withTimeout,
+  generateCacheKey,
+} from './utils';
+
+import type { CryptoProvider } from './crypto/crypto';
+import type { DatabaseAdapter, CacheAdapter } from './interfaces';
+import type {
   ConnectionConfig,
   QueryResult,
   QueryOptions,
@@ -14,19 +22,6 @@ import {
   PoolStats,
   Logger,
 } from './types';
-import {
-  NotImplementedError,
-  ConnectionError,
-  QueryError,
-} from './errors';
-import {
-  validateConnectionConfig,
-  validateSQL,
-  retry,
-  withTimeout,
-  generateCacheKey,
-} from './utils';
-import { CryptoProvider } from './crypto/crypto';
 
 export interface BaseAdapterOptions {
   logger?: Logger;
@@ -140,7 +135,11 @@ export abstract class BaseAdapter extends EventEmitter implements DatabaseAdapte
       const queryPromise = this.doQuery<T>(sql, params, options);
 
       if (options.timeout) {
-        result = await withTimeout(queryPromise, options.timeout, `Query timed out after ${options.timeout}ms`);
+        result = await withTimeout(
+          queryPromise,
+          options.timeout,
+          `Query timed out after ${options.timeout}ms`,
+        );
       } else {
         result = await queryPromise;
       }
@@ -159,7 +158,12 @@ export abstract class BaseAdapter extends EventEmitter implements DatabaseAdapte
     } catch (error) {
       const duration = Date.now() - startTime;
       this.emit('queryError', { sql, params, error, duration });
-      throw new QueryError(`Query failed: ${(error as Error).message}`, sql, params as unknown[], error as Error);
+      throw new QueryError(
+        `Query failed: ${(error as Error).message}`,
+        sql,
+        params as unknown[],
+        error as Error,
+      );
     }
   }
 
@@ -169,6 +173,44 @@ export abstract class BaseAdapter extends EventEmitter implements DatabaseAdapte
     options?: QueryOptions,
   ): Promise<QueryResult<T>> {
     return this.query<T>(sql, params, { ...options, cache: false });
+  }
+
+  /**
+   * Execute a batch of queries with different parameter sets
+   * Industry-standard batch operations for bulk inserts/updates
+   */
+  async executeBatch<T = unknown>(
+    sql: string,
+    paramSets: QueryParams[],
+    options?: QueryOptions,
+  ): Promise<QueryResult<T>[]> {
+    if (!this._isConnected) {
+      throw new ConnectionError('Not connected to database');
+    }
+
+    const results: QueryResult<T>[] = [];
+    const startTime = Date.now();
+
+    try {
+      for (const params of paramSets) {
+        const result = await this.execute<T>(sql, params, options);
+        results.push(result);
+      }
+
+      const duration = Date.now() - startTime;
+      this.emit('batchExecute', { sql, batchSize: paramSets.length, duration });
+
+      return results;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.emit('batchError', { sql, error, duration });
+      throw new QueryError(
+        `Batch execution failed: ${(error as Error).message}`,
+        sql,
+        [],
+        error as Error,
+      );
+    }
   }
 
   async prepare<T = unknown>(_sql: string, _name?: string): Promise<PreparedStatement<T>> {
@@ -199,7 +241,7 @@ export abstract class BaseAdapter extends EventEmitter implements DatabaseAdapte
   escapeIdentifier(_identifier: string): string {
     throw new NotImplementedError('escapeIdentifier');
   }
-  
+
   abstract createQueryBuilder<T = unknown>(): import('./interfaces').QueryBuilder<T>;
 
   protected abstract doConnect(config: ConnectionConfig): Promise<void>;
@@ -210,7 +252,11 @@ export abstract class BaseAdapter extends EventEmitter implements DatabaseAdapte
     options?: QueryOptions,
   ): Promise<QueryResult<T>>;
 
-  private getCacheKey(sql: string, params?: QueryParams, cacheOptions?: boolean | CacheOptions): string {
+  private getCacheKey(
+    sql: string,
+    params?: QueryParams,
+    cacheOptions?: boolean | CacheOptions,
+  ): string {
     if (typeof cacheOptions === 'object' && cacheOptions.key) {
       return cacheOptions.key;
     }

@@ -1,6 +1,7 @@
-import Redis from 'ioredis';
-import { EventEmitter } from 'eventemitter3';
 import { CacheError } from '@db-bridge/core';
+import { EventEmitter } from 'eventemitter3';
+
+import type Redis from 'ioredis';
 
 export interface StreamEntry {
   id: string;
@@ -36,7 +37,7 @@ export class RedisStreamManager extends EventEmitter {
     options?: {
       maxlen?: number;
       approximate?: boolean;
-    }
+    },
   ): Promise<string> {
     try {
       const args: (string | number)[] = [key];
@@ -56,7 +57,11 @@ export class RedisStreamManager extends EventEmitter {
         args.push(field, String(value));
       });
 
-      const resultId = await this.client.xadd(key, args[1] as string, ...args.slice(2) as string[]);
+      const resultId = await this.client.xadd(
+        key,
+        args[1] as string,
+        ...(args.slice(2) as string[]),
+      );
       return resultId || '';
     } catch (error) {
       throw new CacheError(`Failed to add to stream ${key}`, key, error as Error);
@@ -68,7 +73,7 @@ export class RedisStreamManager extends EventEmitter {
     options?: {
       count?: number;
       block?: number;
-    }
+    },
   ): Promise<Array<[string, StreamEntry[]]>> {
     try {
       const args: (string | number)[] = [];
@@ -81,16 +86,18 @@ export class RedisStreamManager extends EventEmitter {
       }
 
       args.push('STREAMS');
-      
+
       const keys = Object.keys(streams);
       const ids = Object.values(streams);
       args.push(...keys, ...ids);
 
       const result = await (this.client as any).xread(...args);
-      
-      if (!result) return [];
 
-      return this.parseStreamResults(result as any);
+      if (!result) {
+        return [];
+      }
+
+      return this.parseStreamResults(result);
     } catch (error) {
       throw new CacheError('Failed to read from streams', undefined, error as Error);
     }
@@ -100,16 +107,16 @@ export class RedisStreamManager extends EventEmitter {
     key: string,
     start: string = '-',
     end: string = '+',
-    count?: number
+    count?: number,
   ): Promise<StreamEntry[]> {
     try {
       const args: (string | number)[] = [key, start, end];
-      
+
       if (count) {
         args.push('COUNT', count);
       }
 
-      const result = count 
+      const result = count
         ? await this.client.xrange(key, start, end, 'COUNT', count)
         : await this.client.xrange(key, start, end);
       return this.parseEntries(result as any);
@@ -122,11 +129,11 @@ export class RedisStreamManager extends EventEmitter {
     key: string,
     end: string = '+',
     start: string = '-',
-    count?: number
+    count?: number,
   ): Promise<StreamEntry[]> {
     try {
       const args: (string | number)[] = [key, end, start];
-      
+
       if (count) {
         args.push('COUNT', count);
       }
@@ -156,18 +163,14 @@ export class RedisStreamManager extends EventEmitter {
     }
   }
 
-  async xtrim(
-    key: string,
-    maxlen: number,
-    approximate = false
-  ): Promise<number> {
+  async xtrim(key: string, maxlen: number, approximate = false): Promise<number> {
     try {
       const args: (string | number)[] = [key, 'MAXLEN'];
-      
+
       if (approximate) {
         args.push('~');
       }
-      
+
       args.push(maxlen);
 
       return approximate
@@ -183,11 +186,11 @@ export class RedisStreamManager extends EventEmitter {
     key: string,
     groupName: string,
     id: string = '$',
-    mkstream = false
+    mkstream = false,
   ): Promise<void> {
     try {
       const args: (string | boolean)[] = [key, groupName, id];
-      
+
       if (mkstream) {
         args.push('MKSTREAM');
       }
@@ -230,7 +233,7 @@ export class RedisStreamManager extends EventEmitter {
       count?: number;
       block?: number;
       noack?: boolean;
-    }
+    },
   ): Promise<Array<[string, StreamEntry[]]>> {
     try {
       const args: (string | number)[] = ['GROUP', groupName, consumerName];
@@ -246,16 +249,18 @@ export class RedisStreamManager extends EventEmitter {
       }
 
       args.push('STREAMS');
-      
+
       const keys = Object.keys(streams);
       const ids = Object.values(streams);
       args.push(...keys, ...ids);
 
       const result = await (this.client as any).xreadgroup(...args);
-      
-      if (!result) return [];
 
-      return this.parseStreamResults(result as any);
+      if (!result) {
+        return [];
+      }
+
+      return this.parseStreamResults(result);
     } catch (error) {
       throw new CacheError('Failed to read from consumer group', undefined, error as Error);
     }
@@ -265,7 +270,11 @@ export class RedisStreamManager extends EventEmitter {
     try {
       return await this.client.xack(key, groupName, ...ids);
     } catch (error) {
-      throw new CacheError(`Failed to acknowledge messages in group ${groupName}`, key, error as Error);
+      throw new CacheError(
+        `Failed to acknowledge messages in group ${groupName}`,
+        key,
+        error as Error,
+      );
     }
   }
 
@@ -277,22 +286,26 @@ export class RedisStreamManager extends EventEmitter {
       end?: string;
       count?: number;
       consumer?: string;
-    }
+    },
   ): Promise<any> {
     try {
       const args: (string | number)[] = [key, groupName];
 
       if (options?.start && options?.end) {
         args.push(options.start, options.end, options.count || 10);
-        
+
         if (options.consumer) {
           args.push(options.consumer);
         }
       }
 
-      return await (this.client as any).xpending(...args);
+      return await ((this.client as any).xpending(...args) as Promise<unknown>);
     } catch (error) {
-      throw new CacheError(`Failed to get pending messages for group ${groupName}`, key, error as Error);
+      throw new CacheError(
+        `Failed to get pending messages for group ${groupName}`,
+        key,
+        error as Error,
+      );
     }
   }
 
@@ -308,7 +321,7 @@ export class RedisStreamManager extends EventEmitter {
       retrycount?: number;
       force?: boolean;
       justid?: boolean;
-    }
+    },
   ): Promise<StreamEntry[] | string[]> {
     try {
       const args: (string | number)[] = [key, groupName, consumerName, minIdleTime, ...ids];
@@ -330,35 +343,39 @@ export class RedisStreamManager extends EventEmitter {
       }
 
       const result = await (this.client as any).xclaim(...args);
-      
+
       if (options?.justid) {
         return result as string[];
       }
-      
-      return this.parseEntries(result as any);
+
+      return this.parseEntries(result);
     } catch (error) {
-      throw new CacheError(`Failed to claim messages for consumer ${consumerName}`, key, error as Error);
+      throw new CacheError(
+        `Failed to claim messages for consumer ${consumerName}`,
+        key,
+        error as Error,
+      );
     }
   }
 
   async xinfo(
     subcommand: 'STREAM' | 'GROUPS' | 'CONSUMERS',
     key: string,
-    groupName?: string
+    groupName?: string,
   ): Promise<StreamInfo | ConsumerGroupInfo[] | any[]> {
     try {
       const args: string[] = [subcommand, key];
-      
+
       if (groupName && subcommand === 'CONSUMERS') {
         args.push(groupName);
       }
 
       const result = await (this.client as any).xinfo(...args);
-      
+
       if (subcommand === 'STREAM') {
-        return this.parseStreamInfo(result as any);
+        return this.parseStreamInfo(result);
       } else if (subcommand === 'GROUPS') {
-        return this.parseGroupsInfo(result as any);
+        return this.parseGroupsInfo(result);
       } else {
         return result as any[];
       }
@@ -376,40 +393,39 @@ export class RedisStreamManager extends EventEmitter {
 
   private parseFields(raw: string[]): Record<string, string> {
     const fields: Record<string, string> = {};
-    
+
     for (let i = 0; i < raw.length; i += 2) {
       fields[raw[i]!] = raw[i + 1]!;
     }
-    
+
     return fields;
   }
 
   private parseStreamResults(raw: any[]): Array<[string, StreamEntry[]]> {
-    return raw.map(([stream, entries]) => [
-      stream,
-      this.parseEntries(entries),
-    ]);
+    return raw.map(([stream, entries]) => [stream, this.parseEntries(entries)]);
   }
 
   private parseStreamInfo(raw: any[]): StreamInfo {
     const info: any = {};
-    
+
     for (let i = 0; i < raw.length; i += 2) {
       const key = raw[i];
       const value = raw[i + 1];
-      
+
       switch (key) {
         case 'length':
         case 'radix-tree-keys':
         case 'radix-tree-nodes':
-        case 'groups':
+        case 'groups': {
           info[this.camelCase(key)] = value;
           break;
-        case 'last-generated-id':
+        }
+        case 'last-generated-id': {
           info.lastGeneratedId = value;
           break;
+        }
         case 'first-entry':
-        case 'last-entry':
+        case 'last-entry': {
           if (value) {
             info[this.camelCase(key)] = {
               id: value[0],
@@ -417,37 +433,40 @@ export class RedisStreamManager extends EventEmitter {
             };
           }
           break;
+        }
       }
     }
-    
+
     return info as StreamInfo;
   }
 
   private parseGroupsInfo(raw: any[]): ConsumerGroupInfo[] {
     return raw.map((group) => {
       const info: any = {};
-      
+
       for (let i = 0; i < group.length; i += 2) {
         const key = group[i];
         const value = group[i + 1];
-        
+
         switch (key) {
           case 'name':
           case 'consumers':
-          case 'pending':
+          case 'pending': {
             info[key] = value;
             break;
-          case 'last-delivered-id':
+          }
+          case 'last-delivered-id': {
             info.lastDeliveredId = value;
             break;
+          }
         }
       }
-      
+
       return info as ConsumerGroupInfo;
     });
   }
 
   private camelCase(str: string): string {
-    return str.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    return str.replaceAll(/-([a-z])/g, (_, letter) => letter.toUpperCase());
   }
 }

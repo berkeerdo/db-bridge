@@ -1,6 +1,7 @@
-import { QueryResult } from '../../types';
 import { CacheBaseTrait } from './cache-base-trait';
-import { CacheStrategy, CacheManagerOptions } from '../cache-strategy';
+
+import type { QueryResult } from '../../types';
+import type { CacheStrategy, QueryCacheOptions } from '../cache-strategy';
 
 export interface CachedQuery {
   key: string;
@@ -25,7 +26,7 @@ export class CacheOperationsTrait extends CacheBaseTrait {
   async get<T = unknown>(
     sql: string,
     params?: unknown[],
-    options?: CacheManagerOptions
+    options?: QueryCacheOptions,
   ): Promise<QueryResult<T> | null> {
     if (!this.enabled) {
       return null;
@@ -36,11 +37,11 @@ export class CacheOperationsTrait extends CacheBaseTrait {
 
     try {
       const cached = await this.cache.get<QueryResult<T>>(key);
-      
+
       if (cached) {
         const duration = Date.now() - startTime;
         this.updateStatistics('hit', duration);
-        
+
         // Update hit count
         const cachedQuery = this.queryCache.get(key);
         if (cachedQuery) {
@@ -49,7 +50,7 @@ export class CacheOperationsTrait extends CacheBaseTrait {
 
         this.emit('cacheHit', { key, sql, duration });
         this.logger?.debug('Cache hit', { key, duration });
-        
+
         return cached;
       }
 
@@ -57,7 +58,7 @@ export class CacheOperationsTrait extends CacheBaseTrait {
       this.updateStatistics('miss', duration);
       this.emit('cacheMiss', { key, sql, duration });
       this.logger?.debug('Cache miss', { key, duration });
-      
+
       return null;
     } catch (error) {
       this.logger?.error('Cache get error', error);
@@ -70,7 +71,7 @@ export class CacheOperationsTrait extends CacheBaseTrait {
     sql: string,
     params: unknown[] | undefined,
     result: QueryResult<T>,
-    options?: CacheManagerOptions
+    options?: QueryCacheOptions,
   ): Promise<void> {
     if (!this.enabled) {
       return;
@@ -88,7 +89,7 @@ export class CacheOperationsTrait extends CacheBaseTrait {
 
     try {
       await this.cache.set(key, result, ttl);
-      
+
       // Store metadata
       const cachedQuery: CachedQuery = {
         key,
@@ -102,7 +103,7 @@ export class CacheOperationsTrait extends CacheBaseTrait {
       };
 
       this.queryCache.set(key, cachedQuery);
-      
+
       // Update tag index
       tags.forEach((tag) => {
         if (!this.tagIndex.has(tag)) {
@@ -126,8 +127,7 @@ export class CacheOperationsTrait extends CacheBaseTrait {
   }
 
   getCachedQueries(): CachedQuery[] {
-    return Array.from(this.queryCache.values())
-      .sort((a, b) => b.hits - a.hits);
+    return Array.from(this.queryCache.values()).sort((a, b) => b.hits - a.hits);
   }
 
   getCacheSize(): { entries: number; approximateSize: number } {

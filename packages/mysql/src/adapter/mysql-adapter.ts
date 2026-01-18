@@ -1,22 +1,28 @@
-import * as mysql from 'mysql2/promise';
 import {
-    BaseAdapter,
-    BaseAdapterOptions,
-    ConnectionConfig,
-    ConnectionError,
-    PoolStats,
-    PreparedStatement,
-    QueryOptions,
-    QueryParams,
-    QueryResult,
-    Transaction,
-    TransactionError,
-    TransactionOptions,
+  BaseAdapter,
+  ConnectionError,
+  TransactionError,
+  QueryTimeoutError,
+  POOL_DEFAULTS,
 } from '@db-bridge/core';
-import {MySQLConnectionPool} from '../pool/connection-pool';
-import {MySQLTransaction} from './mysql-transaction';
-import {MySQLPreparedStatement} from './mysql-prepared-statement';
-import {MySQLQueryBuilder} from '../query-builder/mysql-query-builder';
+import * as mysql from 'mysql2/promise';
+
+import { MySQLPreparedStatement } from './mysql-prepared-statement';
+import { MySQLTransaction } from './mysql-transaction';
+import { MySQLConnectionPool } from '../pool/connection-pool';
+import { MySQLQueryBuilder } from '../query-builder/mysql-query-builder';
+
+import type {
+  BaseAdapterOptions,
+  ConnectionConfig,
+  PoolStats,
+  PreparedStatement,
+  QueryOptions,
+  QueryParams,
+  QueryResult,
+  Transaction,
+  TransactionOptions,
+} from '@db-bridge/core';
 
 export interface MySQLAdapterOptions extends BaseAdapterOptions {
   mysql2Options?: mysql.ConnectionOptions;
@@ -28,6 +34,21 @@ export class MySQLAdapter extends BaseAdapter {
 
   private pool?: MySQLConnectionPool;
   private readonly mysql2Options?: mysql.ConnectionOptions;
+  private poolConfig: {
+    min: number;
+    max: number;
+    acquireTimeout: number;
+    idleTimeout: number;
+    queueLimit: number;
+    queryTimeout: number;
+  } = {
+    min: POOL_DEFAULTS.min,
+    max: POOL_DEFAULTS.max,
+    acquireTimeout: POOL_DEFAULTS.acquireTimeout,
+    idleTimeout: POOL_DEFAULTS.idleTimeout,
+    queueLimit: POOL_DEFAULTS.queueLimit,
+    queryTimeout: POOL_DEFAULTS.queryTimeout,
+  };
 
   constructor(options: MySQLAdapterOptions = {}) {
     super(options);
@@ -35,25 +56,36 @@ export class MySQLAdapter extends BaseAdapter {
   }
 
   protected async doConnect(config: ConnectionConfig): Promise<void> {
+    // Merge pool config with defaults
+    this.poolConfig = {
+      min: config.pool?.min ?? POOL_DEFAULTS.min,
+      max: config.pool?.max ?? config.poolSize ?? POOL_DEFAULTS.max,
+      acquireTimeout: config.pool?.acquireTimeout ?? POOL_DEFAULTS.acquireTimeout,
+      idleTimeout: config.pool?.idleTimeout ?? POOL_DEFAULTS.idleTimeout,
+      queueLimit: config.pool?.queueLimit ?? POOL_DEFAULTS.queueLimit,
+      queryTimeout: config.pool?.queryTimeout ?? POOL_DEFAULTS.queryTimeout,
+    };
+
     const connectionOptions: mysql.ConnectionOptions = {
       host: config.host,
       port: config.port || 3306,
       user: config.user,
       password: config.password,
       database: config.database,
-      
-      // Pool configuration with new structure support
-      connectionLimit: config.pool?.max || config.poolSize || 10,
+
+      // Pool configuration with production-ready defaults
+      connectionLimit: this.poolConfig.max,
       waitForConnections: true,
-      queueLimit: config.pool?.queueLimit || 0,
+      queueLimit: this.poolConfig.queueLimit,
       connectTimeout: config.connectionTimeout || 10000,
-      
-      // Additional pool options if available
-      ...(config.pool?.enableKeepAlive && {
-        enableKeepAlive: config.pool.enableKeepAlive,
-        keepAliveInitialDelay: config.pool.keepAliveInitialDelay || 0
+      idleTimeout: this.poolConfig.idleTimeout,
+
+      // Additional pool options
+      ...(config.pool?.enableKeepAlive !== false && {
+        enableKeepAlive: true,
+        keepAliveInitialDelay: config.pool?.keepAliveInitialDelay || 10000,
       }),
-      
+
       ...this.mysql2Options,
     };
 
@@ -63,10 +95,12 @@ export class MySQLAdapter extends BaseAdapter {
 
     this.pool = new MySQLConnectionPool(connectionOptions);
     await this.pool.initialize();
-    
-    this.logger?.info('Connected to MySQL database', { 
+
+    this.logger?.info('Connected to MySQL database', {
       database: config.database,
-      poolSize: connectionOptions.connectionLimit 
+      poolSize: this.poolConfig.max,
+      queueLimit: this.poolConfig.queueLimit,
+      queryTimeout: this.poolConfig.queryTimeout,
     });
   }
 
@@ -93,20 +127,56 @@ export class MySQLAdapter extends BaseAdapter {
 
     try {
       const queryParams = this.normalizeParams(params);
-      const [rows, fields] = await connection.execute<mysql.RowDataPacket[]>(sql, queryParams);
+      const command = sql.trim().split(' ')[0]?.toUpperCase();
+      const timeout = options?.timeout ?? this.poolConfig.queryTimeout;
+
+      // Execute with timeout
+      const executeWithTimeout = async <R>(executor: () => Promise<R>): Promise<R> => {
+        if (!timeout) {
+          return executor();
+        }
+
+        return Promise.race([
+          executor(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new QueryTimeoutError(sql.slice(0, 100), timeout)), timeout),
+          ),
+        ]);
+      };
+
+      // For INSERT/UPDATE/DELETE, we get ResultSetHeader instead of RowDataPacket[]
+      if (command === 'INSERT' || command === 'UPDATE' || command === 'DELETE') {
+        const [result] = await executeWithTimeout(() =>
+          connection.execute<mysql.ResultSetHeader>(sql, queryParams),
+        );
+        return {
+          rows: [] as T[],
+          rowCount: result.affectedRows || 0,
+          affectedRows: result.affectedRows || 0,
+          insertId: result.insertId,
+          fields: [],
+          command,
+        };
+      }
+
+      // For SELECT and other queries
+      const [rows, fields] = await executeWithTimeout(() =>
+        connection.execute<mysql.RowDataPacket[]>(sql, queryParams),
+      );
 
       return {
-          rows: rows as T[],
-          rowCount: Array.isArray(rows) ? rows.length : 0,
-          fields: fields?.map((field) => ({
-              name: field.name,
-              type: field.type?.toString() || 'unknown',
-              nullable: field.flags ? !((Number(field.flags) & 1)) : true,
-              primaryKey: field.flags ? !!(Number(field.flags) & 2) : false,
-              autoIncrement: field.flags ? !!(Number(field.flags) & 512) : false,
-              defaultValue: field.default,
-          })),
-          command: sql.trim().split(' ')[0]?.toUpperCase(),
+        rows: rows as T[],
+        rowCount: Array.isArray(rows) ? rows.length : 0,
+        affectedRows: Array.isArray(rows) ? rows.length : 0,
+        fields: fields?.map((field) => ({
+          name: field.name,
+          type: field.type?.toString() || 'unknown',
+          nullable: field.flags ? !(Number(field.flags) & 1) : true,
+          primaryKey: field.flags ? !!(Number(field.flags) & 2) : false,
+          autoIncrement: field.flags ? !!(Number(field.flags) & 512) : false,
+          defaultValue: field.default,
+        })),
+        command,
       };
     } finally {
       if (!options?.transaction) {

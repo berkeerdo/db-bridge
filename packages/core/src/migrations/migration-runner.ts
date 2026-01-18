@@ -1,6 +1,7 @@
-import { DatabaseAdapter } from '../interfaces';
-import { Logger } from '../types';
 import { QueryError } from '../errors';
+
+import type { DatabaseAdapter } from '../interfaces';
+import type { Logger } from '../types';
 
 export interface Migration {
   id: string;
@@ -74,7 +75,7 @@ export class MigrationRunner {
     const existing = this.migrations.find((m) => m.version === migration.version);
     if (existing) {
       throw new Error(
-        `Migration version ${migration.version} already exists: ${existing.name} and ${migration.name}`
+        `Migration version ${migration.version} already exists: ${existing.name} and ${migration.name}`,
       );
     }
 
@@ -88,9 +89,9 @@ export class MigrationRunner {
 
   async getExecutedMigrations(): Promise<MigrationHistory[]> {
     const result = await this.adapter.query<MigrationHistory>(
-      `SELECT * FROM ${this.options.tableName} ORDER BY version ASC`
+      `SELECT * FROM ${this.options.tableName} ORDER BY version ASC`,
     );
-    
+
     return result.rows.map((row) => ({
       ...row,
       executedAt: new Date(row.executedAt),
@@ -100,23 +101,21 @@ export class MigrationRunner {
   async getPendingMigrations(): Promise<Migration[]> {
     const executed = await this.getExecutedMigrations();
     const executedVersions = new Set(executed.map((m) => m.version));
-    
+
     return this.migrations.filter((m) => !executedVersions.has(m.version));
   }
 
   private calculateChecksum(migration: Migration): string {
-    const crypto = require('crypto');
+    const crypto = require('node:crypto');
     const content = `${migration.id}:${migration.version}:${migration.name}:${migration.up.toString()}:${migration.down.toString()}`;
     return crypto.createHash('sha256').update(content).digest('hex');
   }
 
   async up(targetVersion?: number): Promise<void> {
     await this.initialize();
-    
+
     const pending = await this.getPendingMigrations();
-    const toRun = targetVersion
-      ? pending.filter((m) => m.version <= targetVersion)
-      : pending;
+    const toRun = targetVersion ? pending.filter((m) => m.version <= targetVersion) : pending;
 
     if (toRun.length === 0) {
       this.options.logger.info('No pending migrations to run');
@@ -132,11 +131,9 @@ export class MigrationRunner {
 
   async down(targetVersion: number): Promise<void> {
     await this.initialize();
-    
+
     const executed = await this.getExecutedMigrations();
-    const toRevert = executed
-      .filter((m) => m.version > targetVersion)
-      .reverse(); // Revert in reverse order
+    const toRevert = executed.filter((m) => m.version > targetVersion).reverse(); // Revert in reverse order
 
     if (toRevert.length === 0) {
       this.options.logger.info('No migrations to revert');
@@ -161,7 +158,7 @@ export class MigrationRunner {
 
   async rollback(steps = 1): Promise<void> {
     const executed = await this.getExecutedMigrations();
-    
+
     if (executed.length === 0) {
       this.options.logger.info('No migrations to rollback');
       return;
@@ -169,7 +166,7 @@ export class MigrationRunner {
 
     const targetIndex = Math.max(0, executed.length - steps - 1);
     const targetVersion = targetIndex >= 0 ? executed[targetIndex]!.version : 0;
-    
+
     await this.down(targetVersion);
   }
 
@@ -186,7 +183,9 @@ export class MigrationRunner {
     const start = Date.now();
     const checksum = this.calculateChecksum(migration);
 
-    this.options.logger.info(`${direction === 'up' ? 'Running' : 'Reverting'} migration ${migration.version}: ${migration.name}`);
+    this.options.logger.info(
+      `${direction === 'up' ? 'Running' : 'Reverting'} migration ${migration.version}: ${migration.name}`,
+    );
 
     if (this.options.dryRun) {
       this.options.logger.info(`DRY RUN: Would ${direction} migration ${migration.version}`);
@@ -200,12 +199,12 @@ export class MigrationRunner {
       if (direction === 'down' && this.options.validateChecksums) {
         const history = await this.adapter.query<MigrationHistory>(
           `SELECT checksum FROM ${this.options.tableName} WHERE version = ?`,
-          [migration.version]
+          [migration.version],
         );
 
         if (history.rows[0]?.checksum !== checksum) {
           throw new Error(
-            `Checksum mismatch for migration ${migration.version}. The migration may have been modified.`
+            `Checksum mismatch for migration ${migration.version}. The migration may have been modified.`,
           );
         }
       }
@@ -225,27 +224,27 @@ export class MigrationRunner {
             Date.now() - start,
             checksum,
           ],
-          { transaction }
+          { transaction },
         );
       } else {
         await this.adapter.execute(
           `DELETE FROM ${this.options.tableName} WHERE version = ?`,
           [migration.version],
-          { transaction }
+          { transaction },
         );
       }
 
       await transaction.commit();
-      
+
       this.options.logger.info(
-        `${direction === 'up' ? 'Completed' : 'Reverted'} migration ${migration.version} in ${Date.now() - start}ms`
+        `${direction === 'up' ? 'Completed' : 'Reverted'} migration ${migration.version} in ${Date.now() - start}ms`,
       );
     } catch (error) {
       await transaction.rollback();
-      
+
       const action = direction === 'up' ? 'run' : 'revert';
       throw new Error(
-        `Failed to ${action} migration ${migration.version}: ${(error as Error).message}`
+        `Failed to ${action} migration ${migration.version}: ${(error as Error).message}`,
       );
     }
   }
@@ -257,14 +256,14 @@ export class MigrationRunner {
   }> {
     const executed = await this.getExecutedMigrations();
     const pending = await this.getPendingMigrations();
-    const current = executed.length > 0 ? executed[executed.length - 1]!.version : null;
+    const current = executed.length > 0 ? executed.at(-1)!.version : null;
 
     return { executed, pending, current };
   }
 
   async validate(): Promise<{ valid: boolean; errors: string[] }> {
     const errors: string[] = [];
-    
+
     // Check for duplicate versions
     const versions = new Set<number>();
     for (const migration of this.migrations) {
@@ -279,7 +278,7 @@ export class MigrationRunner {
     for (let i = 1; i < sortedVersions.length; i++) {
       if (sortedVersions[i]! - sortedVersions[i - 1]! > 1) {
         errors.push(
-          `Gap in migration versions between ${sortedVersions[i - 1]} and ${sortedVersions[i]}`
+          `Gap in migration versions between ${sortedVersions[i - 1]} and ${sortedVersions[i]}`,
         );
       }
     }
@@ -287,10 +286,10 @@ export class MigrationRunner {
     // Validate checksums of executed migrations
     if (this.options.validateChecksums) {
       const executed = await this.getExecutedMigrations();
-      
+
       for (const history of executed) {
         const migration = this.migrations.find((m) => m.version === history.version);
-        
+
         if (!migration) {
           errors.push(`Migration ${history.version} exists in history but not in codebase`);
           continue;
@@ -299,7 +298,7 @@ export class MigrationRunner {
         const currentChecksum = this.calculateChecksum(migration);
         if (currentChecksum !== history.checksum) {
           errors.push(
-            `Checksum mismatch for migration ${history.version}: ${history.name}. The migration has been modified after execution.`
+            `Checksum mismatch for migration ${history.version}: ${history.name}. The migration has been modified after execution.`,
           );
         }
       }

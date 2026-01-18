@@ -1,13 +1,18 @@
-import { registerAdapterFactory, type DBBridgeConfig } from '@db-bridge/core';
-import { RedisAdapter } from './adapter/redis-adapter';
+/**
+ * Redis adapter registration module
+ *
+ * Note: RedisAdapter implements CacheAdapter, not DatabaseAdapter.
+ * It should be used with CacheManager or CachedAdapter, not with
+ * the database adapter factory.
+ *
+ * Usage:
+ *   import { RedisAdapter } from '@db-bridge/redis';
+ *   import { CacheManager } from '@db-bridge/core';
+ *
+ *   const redis = new RedisAdapter({ ... });
+ *   const cache = new CacheManager(redis);
+ */
 
-// Auto-register Redis adapter factory
-registerAdapterFactory('redis', {
-  createAdapter(config: DBBridgeConfig) {
-    return new RedisAdapter(config.options?.logger ? {
-      logger: config.options.logger
-    } : {});
-  }
-});
-
-export { RedisAdapter };
+export { RedisAdapter } from './adapter/redis-adapter';
+export { RedisCacheAdapter } from './adapter/redis-cache-adapter';
+export { ModularRedisAdapter } from './adapter/modular-redis-adapter';

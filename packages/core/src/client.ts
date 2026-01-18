@@ -1,7 +1,8 @@
 import { CachedAdapter } from './cache/cached-adapter';
-import { DatabaseAdapter, CacheAdapter } from './interfaces';
-import { ConnectionConfig } from './types';
 import { CryptoProvider } from './crypto/crypto';
+
+import type { DatabaseAdapter, CacheAdapter } from './interfaces';
+import type { ConnectionConfig } from './types';
 
 export interface ClientOptions {
   provider: 'mysql' | 'postgresql' | 'postgres';
@@ -24,32 +25,39 @@ export interface ClientOptions {
     query_timeout?: number;
     application_name?: string;
   };
-  cache?: boolean | {
-    provider: 'redis';
-    url?: string;
-    connection?: ConnectionConfig & {
-      db?: number;
-      sentinels?: Array<{ host: string; port: number }>;
-      name?: string;
-      sentinelPassword?: string;
-      retryStrategy?: (times: number) => number;
-      maxRetriesPerRequest?: number;
-      enableReadyCheck?: boolean;
-      enableOfflineQueue?: boolean;
-      cluster?: Array<{ host: string; port: number }>;
-    };
-  };
-  encryption?: boolean | {
-    algorithm?: string;
-    key?: string;
-    keyRotationInterval?: number;
-    autoEncryptFields?: Record<string, string[]>;
-  };
-  logger?: boolean | Console | {
-    level?: string;
-    prettyPrint?: boolean;
-    customLogger?: (level: string, message: string, meta?: any) => void;
-  };
+  cache?:
+    | boolean
+    | {
+        provider: 'redis';
+        url?: string;
+        connection?: ConnectionConfig & {
+          db?: number;
+          sentinels?: Array<{ host: string; port: number }>;
+          name?: string;
+          sentinelPassword?: string;
+          retryStrategy?: (times: number) => number;
+          maxRetriesPerRequest?: number;
+          enableReadyCheck?: boolean;
+          enableOfflineQueue?: boolean;
+          cluster?: Array<{ host: string; port: number }>;
+        };
+      };
+  encryption?:
+    | boolean
+    | {
+        algorithm?: string;
+        key?: string;
+        keyRotationInterval?: number;
+        autoEncryptFields?: Record<string, string[]>;
+      };
+  logger?:
+    | boolean
+    | Console
+    | {
+        level?: string;
+        prettyPrint?: boolean;
+        customLogger?: (level: string, message: string, meta?: any) => void;
+      };
   monitoring?: {
     enabled?: boolean;
     slowQueryThreshold?: number;
@@ -90,7 +98,7 @@ export class DBBridge {
   private static instances: Map<string, DBBridge> = new Map();
   private adapter: DatabaseAdapter;
   private connected: boolean = false;
-  
+
   public readonly options: ClientOptions;
 
   constructor(options: ClientOptions) {
@@ -100,7 +108,7 @@ export class DBBridge {
 
   /**
    * Create a new database client
-   * 
+   *
    * @example
    * ```ts
    * const db = DBBridge.create({
@@ -115,7 +123,7 @@ export class DBBridge {
 
   /**
    * Get or create a singleton instance
-   * 
+   *
    * @example
    * ```ts
    * const db = DBBridge.getInstance('main', {
@@ -136,7 +144,7 @@ export class DBBridge {
 
   /**
    * Create from connection string
-   * 
+   *
    * @example
    * ```ts
    * const db = DBBridge.fromUrl('postgresql://user:pass@localhost/mydb');
@@ -152,15 +160,17 @@ export class DBBridge {
   }
 
   private static parseProvider(url: string): ClientOptions['provider'] {
-    if (url.startsWith('mysql://')) return 'mysql';
-    if (url.startsWith('postgresql://') || url.startsWith('postgres://')) return 'postgresql';
+    if (url.startsWith('mysql://')) {
+      return 'mysql';
+    }
+    if (url.startsWith('postgresql://') || url.startsWith('postgres://')) {
+      return 'postgresql';
+    }
     throw new Error(`Unsupported database URL: ${url}`);
   }
 
   private createAdapter(): DatabaseAdapter {
-    const logger = this.options.logger === true 
-      ? console 
-      : this.options.logger || undefined;
+    const logger = this.options.logger === true ? console : this.options.logger || undefined;
 
     let crypto: CryptoProvider | undefined;
     if (this.options.encryption) {
@@ -188,13 +198,15 @@ export class DBBridge {
         adapter = new PostgreSQLAdapter({ logger, crypto });
         break;
       }
-      default:
+      default: {
         throw new Error(`Unsupported provider: ${this.options.provider}`);
+      }
     }
 
     // Wrap with caching if enabled
     if (this.options.cache) {
-      const cacheOpts = this.options.cache === true ? { provider: 'redis' as const } : this.options.cache;
+      const cacheOpts =
+        this.options.cache === true ? { provider: 'redis' as const } : this.options.cache;
       if (cacheOpts.provider === 'redis') {
         const { RedisAdapter } = require('@db-bridge/redis');
         const redisAdapter = new RedisAdapter({ logger }) as CacheAdapter;
@@ -216,7 +228,7 @@ export class DBBridge {
     const urlObj = new URL(url);
     return {
       host: urlObj.hostname,
-      port: parseInt(urlObj.port) || (this.options.provider === 'mysql' ? 3306 : 5432),
+      port: Number.parseInt(urlObj.port) || (this.options.provider === 'mysql' ? 3306 : 5432),
       user: urlObj.username,
       password: urlObj.password,
       database: urlObj.pathname.slice(1),
@@ -228,9 +240,11 @@ export class DBBridge {
    * Connect to the database
    */
   async connect(): Promise<void> {
-    if (this.connected) return;
+    if (this.connected) {
+      return;
+    }
 
-    const config = this.options.url 
+    const config = this.options.url
       ? this.parseConnectionUrl(this.options.url)
       : this.options.connection;
 
@@ -245,9 +259,10 @@ export class DBBridge {
 
     // Connect to cache if needed
     if (this.options.cache && this.adapter instanceof CachedAdapter) {
-      const cacheOpts = this.options.cache === true ? { provider: 'redis' as const } : this.options.cache;
+      const cacheOpts =
+        this.options.cache === true ? { provider: 'redis' as const } : this.options.cache;
       const cacheAdapter = (this.adapter as any).cache;
-      
+
       if (cacheOpts.url) {
         await cacheAdapter.connect(this.parseConnectionUrl(cacheOpts.url));
       } else if (cacheOpts.connection) {
@@ -263,7 +278,7 @@ export class DBBridge {
 
   /**
    * Get a query builder
-   * 
+   *
    * @example
    * ```ts
    * const users = await db.from('users')
@@ -278,7 +293,7 @@ export class DBBridge {
 
   /**
    * Execute a raw query
-   * 
+   *
    * @example
    * ```ts
    * const result = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
@@ -290,7 +305,7 @@ export class DBBridge {
 
   /**
    * Insert data
-   * 
+   *
    * @example
    * ```ts
    * await db.insert('users', { name: 'John', email: 'john@example.com' });
@@ -302,37 +317,31 @@ export class DBBridge {
 
   /**
    * Update data
-   * 
+   *
    * @example
    * ```ts
    * await db.update('users', { name: 'Jane' }, { id: userId });
    * ```
    */
   async update<T = any>(table: string, data: Record<string, any>, where: Record<string, any>) {
-    return this.adapter.createQueryBuilder<T>()
-      .update(table, data)
-      .where(where)
-      .execute();
+    return this.adapter.createQueryBuilder<T>().update(table, data).where(where).execute();
   }
 
   /**
    * Delete data
-   * 
+   *
    * @example
    * ```ts
    * await db.delete('users', { id: userId });
    * ```
    */
   async delete<T = any>(table: string, where: Record<string, any>) {
-    return this.adapter.createQueryBuilder<T>()
-      .delete(table)
-      .where(where)
-      .execute();
+    return this.adapter.createQueryBuilder<T>().delete(table).where(where).execute();
   }
 
   /**
    * Start a transaction
-   * 
+   *
    * @example
    * ```ts
    * const tx = await db.transaction();
@@ -352,16 +361,18 @@ export class DBBridge {
    * Disconnect from the database
    */
   async disconnect(): Promise<void> {
-    if (!this.connected) return;
-    
+    if (!this.connected) {
+      return;
+    }
+
     await this.adapter.disconnect();
-    
+
     // Disconnect from cache if needed
     if (this.adapter instanceof CachedAdapter) {
       const cacheAdapter = (this.adapter as any).cache;
       await cacheAdapter.disconnect();
     }
-    
+
     this.connected = false;
   }
 

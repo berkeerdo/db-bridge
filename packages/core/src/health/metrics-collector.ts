@@ -78,7 +78,7 @@ export class MetricsCollector extends EventEmitter {
       successfulQueries: 0,
       failedQueries: 0,
       averageLatency: 0,
-      minLatency: Infinity,
+      minLatency: Number.POSITIVE_INFINITY,
       maxLatency: 0,
       queriesPerSecond: 0,
       cacheHitRate: 0,
@@ -111,7 +111,7 @@ export class MetricsCollector extends EventEmitter {
 
   recordQuery(command: string, latency: number, success: boolean, cacheHit = false): void {
     this.queryMetrics.totalQueries++;
-    
+
     if (success) {
       this.queryMetrics.successfulQueries++;
     } else {
@@ -136,7 +136,7 @@ export class MetricsCollector extends EventEmitter {
 
     // Update query distribution
     const queryType = command.toUpperCase();
-    this.queryMetrics.queryDistribution[queryType] = 
+    this.queryMetrics.queryDistribution[queryType] =
       (this.queryMetrics.queryDistribution[queryType] || 0) + 1;
 
     // Update QPS
@@ -145,21 +145,20 @@ export class MetricsCollector extends EventEmitter {
 
     // Update cache hit rate
     if (cacheHit) {
-      const cacheHits = this.customMetrics['cacheHits'] as number || 0;
+      const cacheHits = (this.customMetrics['cacheHits'] as number) || 0;
       this.customMetrics['cacheHits'] = cacheHits + 1;
     }
-    const cacheHits = this.customMetrics['cacheHits'] as number || 0;
-    this.queryMetrics.cacheHitRate = this.queryMetrics.totalQueries > 0
-      ? cacheHits / this.queryMetrics.totalQueries
-      : 0;
+    const cacheHits = (this.customMetrics['cacheHits'] as number) || 0;
+    this.queryMetrics.cacheHitRate =
+      this.queryMetrics.totalQueries > 0 ? cacheHits / this.queryMetrics.totalQueries : 0;
   }
 
   recordConnection(connected: boolean, connectionTime?: number): void {
     this.connectionMetrics.totalConnections++;
-    
+
     if (connected) {
       this.connectionMetrics.activeConnections++;
-      
+
       if (connectionTime) {
         this.connectionTimes.push(connectionTime);
         if (this.connectionTimes.length > 100) {
@@ -175,28 +174,37 @@ export class MetricsCollector extends EventEmitter {
   recordTransaction(
     action: 'start' | 'commit' | 'rollback',
     duration?: number,
-    isDeadlock = false
+    isDeadlock = false,
   ): void {
     switch (action) {
-      case 'start':
+      case 'start': {
         this.transactionMetrics.totalTransactions++;
         this.transactionMetrics.activeTransactions++;
         break;
-      
-      case 'commit':
+      }
+
+      case 'commit': {
         this.transactionMetrics.committedTransactions++;
-        this.transactionMetrics.activeTransactions = Math.max(0, this.transactionMetrics.activeTransactions - 1);
+        this.transactionMetrics.activeTransactions = Math.max(
+          0,
+          this.transactionMetrics.activeTransactions - 1,
+        );
         break;
-      
-      case 'rollback':
+      }
+
+      case 'rollback': {
         this.transactionMetrics.rolledBackTransactions++;
-        this.transactionMetrics.activeTransactions = Math.max(0, this.transactionMetrics.activeTransactions - 1);
-        
+        this.transactionMetrics.activeTransactions = Math.max(
+          0,
+          this.transactionMetrics.activeTransactions - 1,
+        );
+
         if (isDeadlock) {
           this.transactionMetrics.deadlocks++;
           this.emit('deadlock');
         }
         break;
+      }
     }
 
     if (duration) {
@@ -204,16 +212,17 @@ export class MetricsCollector extends EventEmitter {
       if (this.transactionDurations.length > 100) {
         this.transactionDurations.shift();
       }
-      this.transactionMetrics.averageTransactionDuration = this.calculateAverage(this.transactionDurations);
+      this.transactionMetrics.averageTransactionDuration = this.calculateAverage(
+        this.transactionDurations,
+      );
     }
   }
 
   updateConnectionPool(stats: { total: number; active: number; idle: number }): void {
     this.connectionMetrics.activeConnections = stats.active;
     this.connectionMetrics.idleConnections = stats.idle;
-    this.connectionMetrics.connectionReuse = stats.total > 0
-      ? (this.queryMetrics.totalQueries / stats.total)
-      : 0;
+    this.connectionMetrics.connectionReuse =
+      stats.total > 0 ? this.queryMetrics.totalQueries / stats.total : 0;
   }
 
   setCustomMetric(key: string, value: unknown): void {
@@ -221,7 +230,7 @@ export class MetricsCollector extends EventEmitter {
   }
 
   incrementCustomMetric(key: string, value = 1): void {
-    const current = this.customMetrics[key] as number || 0;
+    const current = (this.customMetrics[key] as number) || 0;
     this.customMetrics[key] = current + value;
   }
 
@@ -252,7 +261,9 @@ export class MetricsCollector extends EventEmitter {
   }
 
   private calculateAverage(values: number[]): number {
-    if (values.length === 0) return 0;
+    if (values.length === 0) {
+      return 0;
+    }
     const sum = values.reduce((acc, val) => acc + val, 0);
     return sum / values.length;
   }
@@ -277,31 +288,26 @@ export class MetricsCollector extends EventEmitter {
     const lines: string[] = [];
 
     // Query metrics
-    lines.push(`# HELP db_queries_total Total number of queries executed`);
-    lines.push(`# TYPE db_queries_total counter`);
-    lines.push(`db_queries_total ${metrics.query.totalQueries}`);
-
-    lines.push(`# HELP db_query_duration_seconds Query execution duration in seconds`);
-    lines.push(`# TYPE db_query_duration_seconds summary`);
-    lines.push(`db_query_duration_seconds{quantile="0.5"} ${metrics.query.averageLatency / 1000}`);
-    lines.push(`db_query_duration_seconds{quantile="0.99"} ${metrics.query.maxLatency / 1000}`);
-    lines.push(`db_query_duration_seconds_sum ${(metrics.query.averageLatency * metrics.query.totalQueries) / 1000}`);
-    lines.push(`db_query_duration_seconds_count ${metrics.query.totalQueries}`);
-
-    // Connection metrics
-    lines.push(`# HELP db_connections_active Number of active database connections`);
-    lines.push(`# TYPE db_connections_active gauge`);
-    lines.push(`db_connections_active ${metrics.connection.activeConnections}`);
-
-    // Transaction metrics
-    lines.push(`# HELP db_transactions_total Total number of transactions`);
-    lines.push(`# TYPE db_transactions_total counter`);
-    lines.push(`db_transactions_total{status="committed"} ${metrics.transaction.committedTransactions}`);
-    lines.push(`db_transactions_total{status="rolled_back"} ${metrics.transaction.rolledBackTransactions}`);
-
-    // System metrics
-    lines.push(`# HELP nodejs_heap_size_total_bytes Process heap size in bytes`);
-    lines.push(`# TYPE nodejs_heap_size_total_bytes gauge`);
+    lines.push(
+      `# HELP db_queries_total Total number of queries executed`,
+      `# TYPE db_queries_total counter`,
+      `db_queries_total ${metrics.query.totalQueries}`,
+      `# HELP db_query_duration_seconds Query execution duration in seconds`,
+      `# TYPE db_query_duration_seconds summary`,
+      `db_query_duration_seconds{quantile="0.5"} ${metrics.query.averageLatency / 1000}`,
+      `db_query_duration_seconds{quantile="0.99"} ${metrics.query.maxLatency / 1000}`,
+      `db_query_duration_seconds_sum ${(metrics.query.averageLatency * metrics.query.totalQueries) / 1000}`,
+      `db_query_duration_seconds_count ${metrics.query.totalQueries}`,
+      `# HELP db_connections_active Number of active database connections`,
+      `# TYPE db_connections_active gauge`,
+      `db_connections_active ${metrics.connection.activeConnections}`,
+      `# HELP db_transactions_total Total number of transactions`,
+      `# TYPE db_transactions_total counter`,
+      `db_transactions_total{status="committed"} ${metrics.transaction.committedTransactions}`,
+      `db_transactions_total{status="rolled_back"} ${metrics.transaction.rolledBackTransactions}`,
+      `# HELP nodejs_heap_size_total_bytes Process heap size in bytes`,
+      `# TYPE nodejs_heap_size_total_bytes gauge`,
+    );
     lines.push(`nodejs_heap_size_total_bytes ${metrics.system.memoryUsage.heapTotal}`);
 
     return lines.join('\n');

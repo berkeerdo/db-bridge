@@ -121,12 +121,14 @@ export interface PgConnectionOptions {
   user?: string;
   password?: string;
   connectionString?: string;
-  ssl?: boolean | {
-    rejectUnauthorized?: boolean;
-    ca?: string;
-    key?: string;
-    cert?: string;
-  };
+  ssl?:
+    | boolean
+    | {
+        rejectUnauthorized?: boolean;
+        ca?: string;
+        key?: string;
+        cert?: string;
+      };
   connectionTimeoutMillis?: number;
   idleTimeoutMillis?: number;
   max?: number;
@@ -152,31 +154,27 @@ export interface PgTypeParser {
 export function setupCustomTypeParsers(): void {
   // Parse bigint as string to avoid precision loss
   types.setTypeParser(types.builtins.INT8, (val: string) => {
-    const num = parseInt(val, 10);
+    const num = Number.parseInt(val, 10);
     return Number.isSafeInteger(num) ? num : val;
   });
 
   // Parse numeric as number (be careful with precision)
-  types.setTypeParser(types.builtins.NUMERIC, parseFloat);
+  types.setTypeParser(types.builtins.NUMERIC, Number.parseFloat);
 
   // Parse money as number
-  types.setTypeParser(types.builtins.MONEY, (val: string) => {
-    return parseFloat(val.replace(/[^0-9.-]/g, ''));
-  });
+  types.setTypeParser(types.builtins.MONEY, (val: string) =>
+    Number.parseFloat(val.replaceAll(/[^\d.-]/g, '')),
+  );
 
   // Keep dates as Date objects
-  types.setTypeParser(types.builtins.DATE, (val: string) => new Date(val + 'T00:00:00Z'));
-  types.setTypeParser(types.builtins.TIMESTAMP, (val: string) => new Date(val + 'Z'));
+  types.setTypeParser(types.builtins.DATE, (val: string) => new Date(`${val}T00:00:00Z`));
+  types.setTypeParser(types.builtins.TIMESTAMP, (val: string) => new Date(`${val}Z`));
   types.setTypeParser(types.builtins.TIMESTAMPTZ, (val: string) => new Date(val));
 
   // Parse arrays - using numeric type IDs directly
   // INT4_ARRAY = 1007
-  types.setTypeParser(1007 as any, (val: string) => {
-    return types.arrayParser(val, parseInt);
-  });
+  types.setTypeParser(1007 as any, (val: string) => types.arrayParser(val, Number.parseInt));
 
   // TEXT_ARRAY = 1009
-  types.setTypeParser(1009 as any, (val: string) => {
-    return types.arrayParser(val, (v) => v);
-  });
+  types.setTypeParser(1009 as any, (val: string) => types.arrayParser(val, (v) => v));
 }

@@ -1,4 +1,5 @@
 import { CacheError, withTimeout } from '@db-bridge/core';
+
 import { RedisConnectionManager } from './connection-trait';
 
 export class BasicOperationsTrait extends RedisConnectionManager {
@@ -10,13 +11,10 @@ export class BasicOperationsTrait extends RedisConnectionManager {
 
   async get<T = unknown>(key: string): Promise<T | null> {
     this.ensureConnected();
-    
+
     try {
       const fullKey = this.getFullKey(key);
-      const value = await withTimeout(
-        this.client!.get(fullKey),
-        this.commandTimeout,
-      );
+      const value = await withTimeout(this.client!.get(fullKey), this.commandTimeout);
 
       if (!value) {
         return null;
@@ -36,15 +34,9 @@ export class BasicOperationsTrait extends RedisConnectionManager {
       const serialized = this.serialize(value);
 
       if (ttl && ttl > 0) {
-        await withTimeout(
-          this.client!.setex(fullKey, ttl, serialized),
-          this.commandTimeout,
-        );
+        await withTimeout(this.client!.setex(fullKey, ttl, serialized), this.commandTimeout);
       } else {
-        await withTimeout(
-          this.client!.set(fullKey, serialized),
-          this.commandTimeout,
-        );
+        await withTimeout(this.client!.set(fullKey, serialized), this.commandTimeout);
       }
 
       this.emit('set', { key, ttl });
@@ -58,10 +50,7 @@ export class BasicOperationsTrait extends RedisConnectionManager {
 
     try {
       const fullKey = this.getFullKey(key);
-      const result = await withTimeout(
-        this.client!.del(fullKey),
-        this.commandTimeout,
-      );
+      const result = await withTimeout(this.client!.del(fullKey), this.commandTimeout);
 
       const deleted = result > 0;
       if (deleted) {
@@ -83,10 +72,7 @@ export class BasicOperationsTrait extends RedisConnectionManager {
 
     try {
       const fullKey = this.getFullKey(key);
-      const result = await withTimeout(
-        this.client!.exists(fullKey),
-        this.commandTimeout,
-      );
+      const result = await withTimeout(this.client!.exists(fullKey), this.commandTimeout);
 
       return result > 0;
     } catch (error) {
@@ -99,10 +85,7 @@ export class BasicOperationsTrait extends RedisConnectionManager {
 
     try {
       const fullKey = this.getFullKey(key);
-      const ttl = await withTimeout(
-        this.client!.ttl(fullKey),
-        this.commandTimeout,
-      );
+      const ttl = await withTimeout(this.client!.ttl(fullKey), this.commandTimeout);
 
       return ttl >= 0 ? ttl : -1;
     } catch (error) {
@@ -115,10 +98,7 @@ export class BasicOperationsTrait extends RedisConnectionManager {
 
     try {
       const fullKey = this.getFullKey(key);
-      const result = await withTimeout(
-        this.client!.expire(fullKey, ttl),
-        this.commandTimeout,
-      );
+      const result = await withTimeout(this.client!.expire(fullKey, ttl), this.commandTimeout);
 
       return result === 1;
     } catch (error) {

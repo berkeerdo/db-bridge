@@ -1,7 +1,8 @@
-import { ConnectionConfig, DatabaseAdapter } from './interfaces';
 import { DatabaseError } from './errors';
 
-export type DatabaseType = 'mysql' | 'postgresql' | 'postgres' | 'redis';
+import type { ConnectionConfig, DatabaseAdapter } from './interfaces';
+
+export type DatabaseType = 'mysql' | 'postgresql' | 'postgres';
 
 export interface DBBridgeConfig {
   type: DatabaseType;
@@ -36,14 +37,14 @@ export function registerAdapterFactory(type: DatabaseType, factory: AdapterFacto
  */
 export function createAdapter(config: DBBridgeConfig): DatabaseAdapter {
   const factory = adapterFactories.get(config.type);
-  
+
   if (!factory) {
     throw new DatabaseError(
       `No adapter factory registered for type: ${config.type}. ` +
-      `Make sure you've imported the adapter package.`
+        `Make sure you've imported the adapter package.`,
     );
   }
-  
+
   return factory.createAdapter(config);
 }
 
@@ -62,7 +63,7 @@ export class DBBridge {
     return new DBBridge({
       type: 'mysql',
       connection,
-      options
+      options,
     });
   }
 
@@ -70,15 +71,7 @@ export class DBBridge {
     return new DBBridge({
       type: 'postgresql',
       connection,
-      options
-    });
-  }
-
-  static redis(connection?: ConnectionConfig, options?: any): DBBridge {
-    return new DBBridge({
-      type: 'redis',
-      connection: connection || { host: 'localhost', port: 6379 },
-      options
+      options,
     });
   }
 
@@ -109,7 +102,10 @@ export class DBBridge {
     return this.configureQueryBuilder(qb, tableName);
   }
 
-  private configureQueryBuilder<T>(qb: any, tableName: string): import('./interfaces').QueryBuilder<T> {
+  private configureQueryBuilder<T>(
+    qb: any,
+    tableName: string,
+  ): import('./interfaces').QueryBuilder<T> {
     if (typeof qb.table === 'function') {
       return qb.table(tableName);
     }
@@ -131,7 +127,7 @@ export class DBBridge {
   async transaction<T>(callback: (trx: any) => Promise<T>): Promise<T> {
     this.ensureConnected();
     const trx = await this.adapter!.beginTransaction();
-    
+
     try {
       const result = await callback(trx);
       await trx.commit();

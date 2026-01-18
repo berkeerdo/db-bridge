@@ -1,5 +1,8 @@
-import { Pool, PoolClient, PoolConfig } from 'pg';
-import { ConnectionError, PoolStats } from '@db-bridge/core';
+import { ConnectionError } from '@db-bridge/core';
+import { Pool } from 'pg';
+
+import type { PoolStats } from '@db-bridge/core';
+import type { PoolClient, PoolConfig } from 'pg';
 
 export class PostgreSQLConnectionPool {
   private pool?: Pool;
@@ -9,7 +12,7 @@ export class PostgreSQLConnectionPool {
   async initialize(): Promise<void> {
     try {
       this.pool = new Pool(this.config);
-      
+
       this.pool.on('error', (err) => {
         console.error('Unexpected error on idle PostgreSQL client', err);
       });

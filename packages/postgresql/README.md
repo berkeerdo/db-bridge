@@ -31,7 +31,7 @@ await adapter.connect({
   port: 5432,
   user: 'postgres',
   password: 'password',
-  database: 'myapp'
+  database: 'myapp',
 });
 
 // Simple query
@@ -78,26 +78,26 @@ interface PostgreSQLConnectionConfig {
 const adapter = new PostgreSQLAdapter({
   // Logger instance (optional)
   logger: console,
-  
+
   // Parse PostgreSQL types automatically
   parseTypes: true,
-  
+
   // Retry options
   retryOptions: {
     maxRetries: 3,
-    retryDelay: 1000
+    retryDelay: 1000,
   },
-  
+
   // pg specific options
   pgOptions: {
     ssl: {
       rejectUnauthorized: false,
-      ca: fs.readFileSync('server-ca.pem')
+      ca: fs.readFileSync('server-ca.pem'),
     },
     statement_timeout: 30000,
     query_timeout: 60000,
-    connectionTimeoutMillis: 10000
-  }
+    connectionTimeoutMillis: 10000,
+  },
 });
 ```
 
@@ -107,15 +107,15 @@ const adapter = new PostgreSQLAdapter({
 
 ```typescript
 // Parameterized query with $1, $2 placeholders
-const result = await adapter.query(
-  'SELECT * FROM products WHERE price > $1 AND category = $2',
-  [100, 'electronics']
-);
+const result = await adapter.query('SELECT * FROM products WHERE price > $1 AND category = $2', [
+  100,
+  'electronics',
+]);
 
 // RETURNING clause
 const inserted = await adapter.query(
   'INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *',
-  ['John Doe', 'john@example.com']
+  ['John Doe', 'john@example.com'],
 );
 console.log('Inserted user:', inserted.rows[0]);
 ```
@@ -125,19 +125,17 @@ console.log('Inserted user:', inserted.rows[0]);
 ```typescript
 const qb = adapter.createQueryBuilder();
 
-// Complex query with CTEs
+// SELECT with joins
 const query = qb
-  .with('active_users', qb => 
-    qb.select('*').from('users').where('active', '=', true)
-  )
-  .select('au.*', 'COUNT(o.id) as order_count')
-  .from('active_users', 'au')
-  .join('orders o', 'o.user_id = au.id', 'LEFT')
-  .groupBy('au.id')
-  .having('COUNT(o.id)', '>', 5)
+  .select('u.*', 'COUNT(o.id) as order_count')
+  .from('users', 'u')
+  .leftJoin('orders o', 'o.user_id = u.id')
+  .where('u.active', true)
+  .groupBy('u.id')
+  .having('COUNT(o.id) > ?', [5])
   .orderBy('order_count', 'DESC');
 
-const results = await query.execute();
+const results = await query.get();
 ```
 
 ### Transactions
@@ -147,18 +145,14 @@ const results = await query.execute();
 const transaction = await adapter.beginTransaction();
 
 try {
-  await adapter.execute(
-    'UPDATE accounts SET balance = balance - $1 WHERE id = $2',
-    [100, 1],
-    { transaction }
-  );
-  
-  await adapter.execute(
-    'UPDATE accounts SET balance = balance + $1 WHERE id = $2',
-    [100, 2],
-    { transaction }
-  );
-  
+  await adapter.execute('UPDATE accounts SET balance = balance - $1 WHERE id = $2', [100, 1], {
+    transaction,
+  });
+
+  await adapter.execute('UPDATE accounts SET balance = balance + $1 WHERE id = $2', [100, 2], {
+    transaction,
+  });
+
   await transaction.commit();
 } catch (error) {
   await transaction.rollback();
@@ -167,7 +161,7 @@ try {
 
 // Transaction with isolation level
 const tx = await adapter.beginTransaction({
-  isolationLevel: IsolationLevel.SERIALIZABLE
+  isolationLevel: IsolationLevel.SERIALIZABLE,
 });
 
 // Savepoints
@@ -189,44 +183,36 @@ await tx.commit();
 
 ```typescript
 // Insert JSONB data
-await adapter.execute(
-  'INSERT INTO products (name, attributes) VALUES ($1, $2)',
-  ['Laptop', { brand: 'Dell', specs: { ram: '16GB', ssd: '512GB' } }]
-);
+await adapter.execute('INSERT INTO products (name, attributes) VALUES ($1, $2)', [
+  'Laptop',
+  { brand: 'Dell', specs: { ram: '16GB', ssd: '512GB' } },
+]);
 
 // Query JSONB fields
-const products = await adapter.query(
-  "SELECT * FROM products WHERE attributes->>'brand' = $1",
-  ['Dell']
-);
+const products = await adapter.query("SELECT * FROM products WHERE attributes->>'brand' = $1", [
+  'Dell',
+]);
 
 // JSONB operators
-const results = await adapter.query(
-  "SELECT * FROM products WHERE attributes @> $1",
-  [{ brand: 'Dell' }]
-);
+const results = await adapter.query('SELECT * FROM products WHERE attributes @> $1', [
+  { brand: 'Dell' },
+]);
 ```
 
 #### Array Types
 
 ```typescript
 // Insert arrays
-await adapter.execute(
-  'INSERT INTO posts (title, tags) VALUES ($1, $2)',
-  ['PostgreSQL Arrays', ['database', 'postgresql', 'arrays']]
-);
+await adapter.execute('INSERT INTO posts (title, tags) VALUES ($1, $2)', [
+  'PostgreSQL Arrays',
+  ['database', 'postgresql', 'arrays'],
+]);
 
 // Query arrays
-const posts = await adapter.query(
-  'SELECT * FROM posts WHERE tags @> $1',
-  [['postgresql']]
-);
+const posts = await adapter.query('SELECT * FROM posts WHERE tags @> $1', [['postgresql']]);
 
 // Array functions
-const tagged = await adapter.query(
-  'SELECT * FROM posts WHERE $1 = ANY(tags)',
-  ['database']
-);
+const tagged = await adapter.query('SELECT * FROM posts WHERE $1 = ANY(tags)', ['database']);
 ```
 
 #### Full-Text Search
@@ -244,14 +230,15 @@ await adapter.execute(`
 // Full-text search
 const results = await adapter.query(
   "SELECT * FROM articles WHERE search_vector @@ plainto_tsquery('english', $1)",
-  ['database management']
+  ['database management'],
 );
 ```
 
 #### Window Functions
 
 ```typescript
-const analytics = await adapter.query(`
+const analytics = await adapter.query(
+  `
   SELECT 
     user_id,
     created_at,
@@ -260,18 +247,23 @@ const analytics = await adapter.query(`
     ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY amount DESC) as rank
   FROM transactions
   WHERE created_at > $1
-`, ['2024-01-01']);
+`,
+  ['2024-01-01'],
+);
 ```
 
 #### UPSERT (INSERT ... ON CONFLICT)
 
 ```typescript
-await adapter.execute(`
+await adapter.execute(
+  `
   INSERT INTO user_settings (user_id, key, value) 
   VALUES ($1, $2, $3)
   ON CONFLICT (user_id, key) 
   DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-`, [123, 'theme', 'dark']);
+`,
+  [123, 'theme', 'dark'],
+);
 ```
 
 ### Prepared Statements
@@ -280,7 +272,7 @@ await adapter.execute(`
 // Named prepared statement
 const stmt = await adapter.prepare(
   'SELECT * FROM orders WHERE user_id = $1 AND status = $2',
-  'getUserOrders'
+  'getUserOrders',
 );
 
 // Execute multiple times
@@ -318,18 +310,14 @@ adapter.on('error', (err, client) => {
 
 ```typescript
 // COPY FROM for bulk insert
-const copyStream = adapter.copyFrom(
-  'COPY users (name, email) FROM STDIN WITH (FORMAT csv)'
-);
+const copyStream = adapter.copyFrom('COPY users (name, email) FROM STDIN WITH (FORMAT csv)');
 
 copyStream.write('John Doe,john@example.com\n');
 copyStream.write('Jane Smith,jane@example.com\n');
 copyStream.end();
 
 // COPY TO for export
-const outputStream = adapter.copyTo(
-  'COPY users TO STDOUT WITH (FORMAT csv, HEADER true)'
-);
+const outputStream = adapter.copyTo('COPY users TO STDOUT WITH (FORMAT csv, HEADER true)');
 
 outputStream.pipe(fs.createWriteStream('users.csv'));
 ```
@@ -345,10 +333,9 @@ adapter.on('notification', (msg) => {
 });
 
 // Send notification
-await adapter.execute(
-  'NOTIFY user_updates, $1',
-  [JSON.stringify({ userId: 123, action: 'updated' })]
-);
+await adapter.execute('NOTIFY user_updates, $1', [
+  JSON.stringify({ userId: 123, action: 'updated' }),
+]);
 ```
 
 ## Advanced Features
@@ -357,10 +344,9 @@ await adapter.execute(
 
 ```typescript
 // Server-side cursor for large result sets
-const cursor = await adapter.cursor(
-  'SELECT * FROM large_table WHERE created_at > $1',
-  ['2024-01-01']
-);
+const cursor = await adapter.cursor('SELECT * FROM large_table WHERE created_at > $1', [
+  '2024-01-01',
+]);
 
 let rows;
 while ((rows = await cursor.read(100)).length > 0) {
@@ -434,10 +420,7 @@ interface User {
 }
 
 // Type-safe queries
-const users = await adapter.query<User>(
-  'SELECT * FROM users WHERE id = $1',
-  [123]
-);
+const users = await adapter.query<User>('SELECT * FROM users WHERE id = $1', [123]);
 
 // Type-safe query builder
 const user = await adapter

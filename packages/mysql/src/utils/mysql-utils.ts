@@ -2,7 +2,7 @@ export function parseMySQLConnectionString(connectionString: string): Record<str
   const url = new URL(connectionString);
   const config: Record<string, any> = {
     host: url.hostname,
-    port: parseInt(url.port) || 3306,
+    port: Number.parseInt(url.port) || 3306,
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: url.pathname.slice(1),
@@ -10,16 +10,30 @@ export function parseMySQLConnectionString(connectionString: string): Record<str
 
   // Parse query parameters
   url.searchParams.forEach((value, key) => {
-    if (key === 'ssl') {
-      config['ssl'] = value === 'true' || value === '1';
-    } else if (key === 'charset') {
-      config['charset'] = value;
-    } else if (key === 'timezone') {
-      config['timezone'] = value;
-    } else if (key === 'connectionLimit') {
-      config['connectionLimit'] = parseInt(value);
-    } else {
-      config[key] = value;
+    switch (key) {
+      case 'ssl': {
+        config['ssl'] = value === 'true' || value === '1';
+
+        break;
+      }
+      case 'charset': {
+        config['charset'] = value;
+
+        break;
+      }
+      case 'timezone': {
+        config['timezone'] = value;
+
+        break;
+      }
+      case 'connectionLimit': {
+        config['connectionLimit'] = Number.parseInt(value);
+
+        break;
+      }
+      default: {
+        config[key] = value;
+      }
     }
   });
 
@@ -28,16 +42,18 @@ export function parseMySQLConnectionString(connectionString: string): Record<str
 
 export function buildMySQLConnectionString(config: Record<string, any>): string {
   const params = new URLSearchParams();
-  
+
   Object.entries(config).forEach(([key, value]) => {
     if (!['host', 'port', 'user', 'password', 'database'].includes(key)) {
       params.append(key, String(value));
     }
   });
 
-  const auth = config['user'] ? `${encodeURIComponent(config['user'])}:${encodeURIComponent(config['password'] || '')}@` : '';
+  const auth = config['user']
+    ? `${encodeURIComponent(config['user'])}:${encodeURIComponent(config['password'] || '')}@`
+    : '';
   const query = params.toString() ? `?${params.toString()}` : '';
-  
+
   return `mysql://${auth}${config['host']}:${config['port'] || 3306}/${config['database']}${query}`;
 }
 
@@ -52,7 +68,7 @@ export function escapeMySQL(value: unknown): string {
 
   if (typeof value === 'number') {
     if (!isFinite(value)) {
-      throw new Error('Cannot escape non-finite numbers');
+      throw new TypeError('Cannot escape non-finite numbers');
     }
     return String(value);
   }
@@ -75,31 +91,33 @@ export function escapeMySQL(value: unknown): string {
 
   // String escaping
   return `'${String(value)
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r')
-    .replace(/\x00/g, '\\0')
-    .replace(/\x1a/g, '\\Z')}'`;
+    .replaceAll('\\', '\\\\')
+    .replaceAll("'", "\\'")
+    .replaceAll('"', '\\"')
+    .replaceAll('\n', '\\n')
+    .replaceAll('\r', '\\r')
+    .replaceAll('\0', '\\0')
+    .replaceAll('', '\\Z')}'`;
 }
 
 export function formatMySQLDateTime(date: Date): string {
   const pad = (num: number): string => String(num).padStart(2, '0');
-  
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
 }
 
 export function formatMySQLDate(date: Date): string {
   const pad = (num: number): string => String(num).padStart(2, '0');
-  
+
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 export function formatMySQLTime(date: Date): string {
   const pad = (num: number): string => String(num).padStart(2, '0');
-  
+
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
@@ -128,8 +146,7 @@ export function parseMySQLError(error: any): {
     'ER_LOCK_WAIT_TIMEOUT',
   ];
 
-  const isRetryable = retryableCodes.includes(code) || 
-    (errno >= 2000 && errno <= 2999); // Connection errors
+  const isRetryable = retryableCodes.includes(code) || (errno >= 2000 && errno <= 2999); // Connection errors
 
   return { code, errno, message, sqlState, isRetryable };
 }
@@ -144,13 +161,13 @@ export function normalizeMySQLConfig(config: any): any {
 
   // Normalize numeric values
   if (typeof normalized.port === 'string') {
-    normalized.port = parseInt(normalized.port);
+    normalized.port = Number.parseInt(normalized.port);
   }
   if (typeof normalized.connectionLimit === 'string') {
-    normalized.connectionLimit = parseInt(normalized.connectionLimit);
+    normalized.connectionLimit = Number.parseInt(normalized.connectionLimit);
   }
   if (typeof normalized.connectTimeout === 'string') {
-    normalized.connectTimeout = parseInt(normalized.connectTimeout);
+    normalized.connectTimeout = Number.parseInt(normalized.connectTimeout);
   }
 
   // Set defaults

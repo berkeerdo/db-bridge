@@ -1,6 +1,7 @@
-import { DatabaseAdapter } from '../../interfaces';
-import { QueryParams, QueryOptions, QueryResult } from '../../types';
 import { PerformanceAnalysisTrait } from './performance-analysis-trait';
+
+import type { DatabaseAdapter } from '../../interfaces';
+import type { QueryParams, QueryOptions, QueryResult } from '../../types';
 
 export class AdapterWrapperTrait extends PerformanceAnalysisTrait {
   wrapAdapter(adapter: DatabaseAdapter): DatabaseAdapter {
@@ -9,7 +10,7 @@ export class AdapterWrapperTrait extends PerformanceAnalysisTrait {
     adapter.query = async <T = unknown>(
       sql: string,
       params?: QueryParams,
-      options?: QueryOptions
+      options?: QueryOptions,
     ): Promise<QueryResult<T>> => {
       const traceId = this.startTrace('query', { sql, params });
 
@@ -19,7 +20,7 @@ export class AdapterWrapperTrait extends PerformanceAnalysisTrait {
 
         // Analyze slow queries
         const trace = this.traces.get(traceId);
-        if (trace && trace.duration && trace.duration > this.slowQueryThreshold) {
+        if (trace?.duration && trace.duration > this.slowQueryThreshold) {
           this.explainQuery(sql, params).catch(() => {
             // Ignore explain errors
           });
@@ -40,13 +41,11 @@ export class AdapterWrapperTrait extends PerformanceAnalysisTrait {
     return adapter;
   }
 
-  protected wrapMethod(
-    adapter: any,
-    methodName: string,
-    operationType: string
-  ): void {
+  protected wrapMethod(adapter: any, methodName: string, operationType: string): void {
     const original = adapter[methodName];
-    if (typeof original !== 'function') return;
+    if (typeof original !== 'function') {
+      return;
+    }
 
     adapter[methodName] = async (...args: any[]) => {
       const traceId = this.startTrace(`${operationType}.${methodName}`, {

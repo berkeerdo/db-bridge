@@ -1,30 +1,19 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { MySQLAdapter } from '../adapter/mysql-adapter';
-import { MySQLConnectionPool } from '../pool/connection-pool';
 import { ConnectionError, QueryError } from '@db-bridge/core';
 import * as mysql from 'mysql2/promise';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+import { MySQLAdapter } from '../adapter/mysql-adapter';
+import { MySQLConnectionPool } from '../pool/connection-pool';
 
 // Mock mysql2
 vi.mock('mysql2/promise', () => ({
   createPool: vi.fn(),
   escape: vi.fn((value) => `'${value}'`),
-  escapeId: vi.fn((id) => `\`${id}\``)
+  escapeId: vi.fn((id) => `\`${id}\``),
 }));
 
-// Mock connection pool
-vi.mock('../pool/connection-pool', () => ({
-  MySQLConnectionPool: vi.fn().mockImplementation(() => ({
-    initialize: vi.fn().mockResolvedValue(undefined),
-    getConnection: vi.fn(),
-    end: vi.fn().mockResolvedValue(undefined),
-    getStats: vi.fn().mockReturnValue({
-      total: 10,
-      idle: 8,
-      active: 2,
-      waiting: 0
-    })
-  }))
-}));
+// Mock connection pool - will be configured in beforeEach
+vi.mock('../pool/connection-pool');
 
 describe('MySQLAdapter', () => {
   let adapter: MySQLAdapter;
@@ -33,9 +22,7 @@ describe('MySQLAdapter', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
-    adapter = new MySQLAdapter();
-    
+
     // Mock connection
     mockConnection = {
       execute: vi.fn().mockResolvedValue([[], []]),
@@ -44,14 +31,26 @@ describe('MySQLAdapter', () => {
       ping: vi.fn().mockResolvedValue(undefined),
       beginTransaction: vi.fn().mockResolvedValue(undefined),
       commit: vi.fn().mockResolvedValue(undefined),
-      rollback: vi.fn().mockResolvedValue(undefined)
+      rollback: vi.fn().mockResolvedValue(undefined),
     };
 
-    // Get mock pool instance
-    mockPool = (MySQLConnectionPool as any).mock.results[0]?.value;
-    if (mockPool) {
-      mockPool.getConnection.mockResolvedValue(mockConnection);
-    }
+    // Create mock pool instance
+    mockPool = {
+      initialize: vi.fn().mockResolvedValue(undefined),
+      getConnection: vi.fn().mockResolvedValue(mockConnection),
+      end: vi.fn().mockResolvedValue(undefined),
+      getStats: vi.fn().mockReturnValue({
+        total: 10,
+        idle: 8,
+        active: 2,
+        waiting: 0,
+      }),
+    };
+
+    // Configure mock to return our mockPool instance
+    vi.mocked(MySQLConnectionPool).mockImplementation(() => mockPool);
+
+    adapter = new MySQLAdapter();
   });
 
   afterEach(() => {
@@ -70,14 +69,14 @@ describe('MySQLAdapter', () => {
         logger,
         mysql2Options: {
           timezone: '+00:00',
-          dateStrings: true
-        }
+          dateStrings: true,
+        },
       });
 
       expect((customAdapter as any).logger).toBe(logger);
       expect((customAdapter as any).mysql2Options).toEqual({
         timezone: '+00:00',
-        dateStrings: true
+        dateStrings: true,
       });
     });
   });
@@ -89,23 +88,27 @@ describe('MySQLAdapter', () => {
         port: 3306,
         user: 'root',
         password: 'password',
-        database: 'test_db'
+        database: 'test_db',
       };
 
       await adapter.connect(config);
 
-      // Verify pool was created with correct config
-      expect(MySQLConnectionPool).toHaveBeenCalledWith({
-        host: 'localhost',
-        port: 3306,
-        user: 'root',
-        password: 'password',
-        database: 'test_db',
-        connectionLimit: 10,
-        waitForConnections: true,
-        queueLimit: 0,
-        connectTimeout: 10000
-      });
+      // Verify pool was created with correct config (production-ready defaults)
+      expect(MySQLConnectionPool).toHaveBeenCalledWith(
+        expect.objectContaining({
+          host: 'localhost',
+          port: 3306,
+          user: 'root',
+          password: 'password',
+          database: 'test_db',
+          connectionLimit: 10,
+          waitForConnections: true,
+          queueLimit: 100, // Production default
+          connectTimeout: 10000,
+          idleTimeout: 60000, // Production default
+          enableKeepAlive: true, // Production default
+        }),
+      );
 
       expect(mockPool.initialize).toHaveBeenCalled();
     });
@@ -116,8 +119,8 @@ describe('MySQLAdapter', () => {
         database: 'test_db',
         ssl: {
           ca: 'cert-content',
-          rejectUnauthorized: true
-        }
+          rejectUnauthorized: true,
+        },
       };
 
       await adapter.connect(config);
@@ -126,9 +129,9 @@ describe('MySQLAdapter', () => {
         expect.objectContaining({
           ssl: {
             ca: 'cert-content',
-            rejectUnauthorized: true
-          }
-        })
+            rejectUnauthorized: true,
+          },
+        }),
       );
     });
 
@@ -141,8 +144,8 @@ describe('MySQLAdapter', () => {
           max: 50,
           queueLimit: 100,
           enableKeepAlive: true,
-          keepAliveInitialDelay: 10000
-        }
+          keepAliveInitialDelay: 10000,
+        },
       };
 
       await adapter.connect(config);
@@ -152,8 +155,8 @@ describe('MySQLAdapter', () => {
           connectionLimit: 50,
           queueLimit: 100,
           enableKeepAlive: true,
-          keepAliveInitialDelay: 10000
-        })
+          keepAliveInitialDelay: 10000,
+        }),
       );
     });
 
@@ -178,11 +181,11 @@ describe('MySQLAdapter', () => {
     it('should execute query successfully', async () => {
       const mockRows = [
         { id: 1, name: 'John' },
-        { id: 2, name: 'Jane' }
+        { id: 2, name: 'Jane' },
       ];
       const mockFields = [
         { name: 'id', type: 3, flags: 515 },
-        { name: 'name', type: 253, flags: 0 }
+        { name: 'name', type: 253, flags: 0 },
       ];
 
       mockConnection.execute.mockResolvedValueOnce([mockRows, mockFields]);
@@ -190,35 +193,18 @@ describe('MySQLAdapter', () => {
       const result = await adapter.query('SELECT * FROM users WHERE active = ?', [true]);
 
       expect(mockPool.getConnection).toHaveBeenCalled();
-      expect(mockConnection.execute).toHaveBeenCalledWith(
-        'SELECT * FROM users WHERE active = ?',
-        [true]
-      );
+      expect(mockConnection.execute).toHaveBeenCalledWith('SELECT * FROM users WHERE active = ?', [
+        true,
+      ]);
       expect(mockConnection.release).toHaveBeenCalled();
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         rows: mockRows,
         rowCount: 2,
-        fields: [
-          {
-            name: 'id',
-            type: '3',
-            nullable: false,
-            primaryKey: true,
-            autoIncrement: true,
-            defaultValue: undefined
-          },
-          {
-            name: 'name',
-            type: '253',
-            nullable: true,
-            primaryKey: false,
-            autoIncrement: false,
-            defaultValue: undefined
-          }
-        ],
-        command: 'SELECT'
+        command: 'SELECT',
       });
+      expect(result.fields).toHaveLength(2);
+      expect(result.duration).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle query errors', async () => {
@@ -242,18 +228,18 @@ describe('MySQLAdapter', () => {
     it('should work with object parameters', async () => {
       await adapter.query('SELECT * FROM users WHERE id = :id AND name = :name', {
         id: 1,
-        name: 'John'
+        name: 'John',
       });
 
       expect(mockConnection.execute).toHaveBeenCalledWith(
         'SELECT * FROM users WHERE id = :id AND name = :name',
-        [1, 'John']
+        [1, 'John'],
       );
     });
 
     it('should throw error when not connected', async () => {
       const notConnected = new MySQLAdapter();
-      
+
       await expect(notConnected.query('SELECT 1')).rejects.toThrow(ConnectionError);
     });
   });
@@ -264,53 +250,43 @@ describe('MySQLAdapter', () => {
     });
 
     it('should execute insert successfully', async () => {
-      mockConnection.execute.mockResolvedValueOnce([
-        { insertId: 123, affectedRows: 1 },
-        []
+      mockConnection.execute.mockResolvedValueOnce([{ insertId: 123, affectedRows: 1 }, []]);
+
+      const result = await adapter.execute('INSERT INTO users (name, email) VALUES (?, ?)', [
+        'John',
+        'john@example.com',
       ]);
 
-      const result = await adapter.execute(
-        'INSERT INTO users (name, email) VALUES (?, ?)',
-        ['John', 'john@example.com']
-      );
-
-      expect(result).toEqual({
-        insertId: 123,
-        affectedRows: 1
-      });
+      // INSERT returns empty rows array, metadata at top level
+      expect(result.rows).toEqual([]);
+      expect(result.insertId).toBe(123);
+      expect(result.affectedRows).toBe(1);
+      expect(result.command).toBe('INSERT');
     });
 
     it('should execute update successfully', async () => {
-      mockConnection.execute.mockResolvedValueOnce([
-        { affectedRows: 5, changedRows: 5 },
-        []
+      mockConnection.execute.mockResolvedValueOnce([{ affectedRows: 5, changedRows: 5 }, []]);
+
+      const result = await adapter.execute('UPDATE users SET active = ? WHERE created_at < ?', [
+        false,
+        '2023-01-01',
       ]);
 
-      const result = await adapter.execute(
-        'UPDATE users SET active = ? WHERE created_at < ?',
-        [false, '2023-01-01']
-      );
-
-      expect(result).toEqual({
-        affectedRows: 5,
-        changedRows: 5
-      });
+      // UPDATE returns empty rows array, metadata at top level
+      expect(result.rows).toEqual([]);
+      expect(result.affectedRows).toBe(5);
+      expect(result.command).toBe('UPDATE');
     });
 
     it('should execute delete successfully', async () => {
-      mockConnection.execute.mockResolvedValueOnce([
-        { affectedRows: 3 },
-        []
-      ]);
+      mockConnection.execute.mockResolvedValueOnce([{ affectedRows: 3 }, []]);
 
-      const result = await adapter.execute(
-        'DELETE FROM users WHERE id IN (?, ?, ?)',
-        [1, 2, 3]
-      );
+      const result = await adapter.execute('DELETE FROM users WHERE id IN (?, ?, ?)', [1, 2, 3]);
 
-      expect(result).toEqual({
-        affectedRows: 3
-      });
+      // DELETE returns empty rows array, metadata at top level
+      expect(result.rows).toEqual([]);
+      expect(result.affectedRows).toBe(3);
+      expect(result.command).toBe('DELETE');
     });
   });
 
@@ -331,15 +307,12 @@ describe('MySQLAdapter', () => {
     it('should handle transaction with isolation level', async () => {
       await adapter.beginTransaction({
         isolationLevel: 'SERIALIZABLE',
-        readOnly: true
       });
 
       expect(mockConnection.query).toHaveBeenCalledWith(
-        'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE'
+        'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE',
       );
-      expect(mockConnection.query).toHaveBeenCalledWith(
-        'SET TRANSACTION READ ONLY'
-      );
+      expect(mockConnection.beginTransaction).toHaveBeenCalled();
     });
 
     it('should handle transaction errors', async () => {
@@ -375,7 +348,7 @@ describe('MySQLAdapter', () => {
         total: 10,
         idle: 8,
         active: 2,
-        waiting: 0
+        waiting: 0,
       });
     });
 
@@ -386,7 +359,7 @@ describe('MySQLAdapter', () => {
         total: 0,
         idle: 0,
         active: 0,
-        waiting: 0
+        waiting: 0,
       });
     });
   });
@@ -442,8 +415,8 @@ describe('MySQLAdapter', () => {
 
       // Query builder should have access to adapter methods
       expect((qb as any).adapter).toBe(adapter);
-      expect((qb as any).escapeIdentifier).toBeDefined();
-      expect((qb as any).parameterPlaceholder).toBeDefined();
+      expect((qb as any).escapeIdentifierFn).toBeDefined();
+      expect((qb as any).parameterPlaceholderFn).toBeDefined();
     });
   });
 });

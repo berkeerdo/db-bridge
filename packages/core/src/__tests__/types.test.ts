@@ -1,16 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import {
+
+import { IsolationLevel } from '../types';
+
+import type {
   ConnectionConfig,
   PoolConfig,
   QueryResult,
   FieldInfo,
   TransactionOptions,
-  IsolationLevel,
   CacheOptions,
   QueryOptions,
   PoolStats,
   QueryValue,
-  QueryParams
+  QueryParams,
 } from '../types';
 
 describe('Type Definitions', () => {
@@ -26,19 +28,19 @@ describe('Type Definitions', () => {
         pool: {
           min: 5,
           max: 20,
-          acquireTimeout: 30000,
-          idleTimeout: 60000,
+          acquireTimeout: 30_000,
+          idleTimeout: 60_000,
           validateOnBorrow: true,
-          maxLifetime: 1800000,
+          maxLifetime: 1_800_000,
           queueLimit: 0,
           enableKeepAlive: true,
-          keepAliveInitialDelay: 0
+          keepAliveInitialDelay: 0,
         },
-        connectionTimeout: 10000,
-        idleTimeout: 300000,
+        connectionTimeout: 10_000,
+        idleTimeout: 300_000,
         maxRetries: 3,
         retryDelay: 1000,
-        readonly: false
+        readonly: false,
       };
 
       expect(config).toBeDefined();
@@ -48,7 +50,7 @@ describe('Type Definitions', () => {
     it('should work with minimal configuration', () => {
       const config: ConnectionConfig = {
         host: 'localhost',
-        database: 'test_db'
+        database: 'test_db',
       };
 
       expect(config).toBeDefined();
@@ -56,7 +58,7 @@ describe('Type Definitions', () => {
 
     it('should support connection string', () => {
       const config: ConnectionConfig = {
-        connectionString: 'postgresql://user:pass@localhost:5432/db'
+        connectionString: 'postgresql://user:pass@localhost:5432/db',
       };
 
       expect(config.connectionString).toBeDefined();
@@ -68,13 +70,13 @@ describe('Type Definitions', () => {
       const poolConfig: PoolConfig = {
         min: 1,
         max: 10,
-        acquireTimeout: 30000,
-        idleTimeout: 60000,
+        acquireTimeout: 30_000,
+        idleTimeout: 60_000,
         validateOnBorrow: true,
-        maxLifetime: 3600000,
+        maxLifetime: 3_600_000,
         queueLimit: 100,
         enableKeepAlive: true,
-        keepAliveInitialDelay: 10000
+        keepAliveInitialDelay: 10_000,
       };
 
       expect(poolConfig.min).toBe(1);
@@ -94,7 +96,7 @@ describe('Type Definitions', () => {
       const result: QueryResult<User> = {
         rows: [
           { id: 1, name: 'John', email: 'john@example.com' },
-          { id: 2, name: 'Jane', email: 'jane@example.com' }
+          { id: 2, name: 'Jane', email: 'jane@example.com' },
         ],
         rowCount: 2,
         fields: [
@@ -103,21 +105,21 @@ describe('Type Definitions', () => {
             type: 'INT',
             nullable: false,
             primaryKey: true,
-            autoIncrement: true
+            autoIncrement: true,
           },
           {
             name: 'name',
             type: 'VARCHAR',
-            nullable: false
+            nullable: false,
           },
           {
             name: 'email',
             type: 'VARCHAR',
-            nullable: true
-          }
+            nullable: true,
+          },
         ],
         command: 'SELECT',
-        duration: 15
+        duration: 15,
       };
 
       expect(result.rows).toHaveLength(2);
@@ -135,7 +137,7 @@ describe('Type Definitions', () => {
         { isolationLevel: IsolationLevel.REPEATABLE_READ },
         { isolationLevel: IsolationLevel.SERIALIZABLE },
         { isolationLevel: IsolationLevel.SERIALIZABLE, readOnly: true },
-        { isolationLevel: IsolationLevel.SERIALIZABLE, deferrable: true }
+        { isolationLevel: IsolationLevel.SERIALIZABLE, deferrable: true },
       ];
 
       expect(options).toHaveLength(6);
@@ -149,7 +151,7 @@ describe('Type Definitions', () => {
         ttl: 3600,
         key: 'user:123',
         invalidateOn: ['user_update', 'user_delete'],
-        compress: true
+        compress: true,
       };
 
       expect(cacheOptions.ttl).toBe(3600);
@@ -163,7 +165,7 @@ describe('Type Definitions', () => {
       const options1: QueryOptions = {
         cache: true,
         timeout: 5000,
-        prepare: true
+        prepare: true,
       };
 
       const options2: QueryOptions = {
@@ -171,9 +173,9 @@ describe('Type Definitions', () => {
           ttl: 300,
           key: 'products:featured',
           invalidateOn: ['product_update'],
-          compress: false
+          compress: false,
         },
-        timeout: 10000
+        timeout: 10_000,
       };
 
       expect(options1.cache).toBe(true);
@@ -187,7 +189,7 @@ describe('Type Definitions', () => {
         total: 20,
         idle: 15,
         active: 5,
-        waiting: 2
+        waiting: 2,
       };
 
       expect(stats.total).toBe(20);
@@ -208,7 +210,7 @@ describe('Type Definitions', () => {
         name: 'test',
         active: true,
         created: new Date(),
-        deleted: null
+        deleted: null,
       };
 
       expect(params).toHaveProperty('id', 1);
@@ -224,7 +226,7 @@ describe('Type Definitions', () => {
         new Date(),
         Buffer.from('binary'),
         null,
-        undefined
+        undefined,
       ];
 
       expect(values).toHaveLength(8);
@@ -241,7 +243,7 @@ describe('Type Definitions', () => {
           nullable: false,
           primaryKey: true,
           autoIncrement: true,
-          defaultValue: undefined
+          defaultValue: undefined,
         },
         {
           name: 'email',
@@ -249,14 +251,14 @@ describe('Type Definitions', () => {
           nullable: true,
           primaryKey: false,
           autoIncrement: false,
-          defaultValue: null
+          defaultValue: null,
         },
         {
           name: 'created_at',
           type: 'TIMESTAMP',
           nullable: false,
-          defaultValue: 'CURRENT_TIMESTAMP'
-        }
+          defaultValue: 'CURRENT_TIMESTAMP',
+        },
       ];
 
       expect(fields[0].primaryKey).toBe(true);
@@ -268,7 +270,7 @@ describe('Type Definitions', () => {
   describe('Type Guards and Utilities', () => {
     it('should handle optional properties correctly', () => {
       const minimal: ConnectionConfig = {
-        host: 'localhost'
+        host: 'localhost',
       };
 
       const full: ConnectionConfig = {
@@ -281,13 +283,13 @@ describe('Type Definitions', () => {
         ssl: false,
         pool: {
           min: 1,
-          max: 10
+          max: 10,
         },
-        connectionTimeout: 10000,
-        idleTimeout: 60000,
+        connectionTimeout: 10_000,
+        idleTimeout: 60_000,
         maxRetries: 3,
         retryDelay: 1000,
-        readonly: false
+        readonly: false,
       };
 
       expect(minimal.port).toBeUndefined();
@@ -300,7 +302,7 @@ describe('Type Definitions', () => {
         false,
         undefined,
         { rejectUnauthorized: false },
-        { ca: 'cert-content', rejectUnauthorized: true }
+        { ca: 'cert-content', rejectUnauthorized: true },
       ];
 
       expect(sslOptions[0]).toBe(true);

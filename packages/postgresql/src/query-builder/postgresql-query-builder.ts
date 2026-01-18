@@ -10,10 +10,12 @@ export class PostgreSQLQueryBuilder<T = unknown> extends BaseQueryBuilder<T> {
 
     parts.push('SELECT');
     parts.push(this.selectColumns.join(', '));
-    
+
     parts.push('FROM');
     if (this.fromAlias) {
-      parts.push(`${this.escapeIdentifierFn(this.fromTable)} AS ${this.escapeIdentifierFn(this.fromAlias)}`);
+      parts.push(
+        `${this.escapeIdentifierFn(this.fromTable)} AS ${this.escapeIdentifierFn(this.fromAlias)}`,
+      );
     } else {
       parts.push(this.escapeIdentifierFn(this.fromTable));
     }
@@ -111,20 +113,20 @@ export class PostgreSQLQueryBuilder<T = unknown> extends BaseQueryBuilder<T> {
 
     if (this.whereClauses.length > 0) {
       parts.push('WHERE');
-      
+
       const whereConditions: string[] = [];
       this.whereClauses.forEach((clause, index) => {
         let condition = clause.condition;
-        
+
         for (const binding of clause.bindings) {
           condition = condition.replace('?', this.parameterPlaceholderFn(parameterIndex++));
           bindings.push(binding);
         }
-        
+
         const prefix = index === 0 ? '' : clause.type;
         whereConditions.push(`${prefix} ${condition}`.trim());
       });
-      
+
       parts.push(whereConditions.join(' '));
     }
 
@@ -145,20 +147,20 @@ export class PostgreSQLQueryBuilder<T = unknown> extends BaseQueryBuilder<T> {
 
     if (this.whereClauses.length > 0) {
       parts.push('WHERE');
-      
+
       const whereConditions: string[] = [];
       this.whereClauses.forEach((clause, index) => {
         let condition = clause.condition;
-        
+
         for (const binding of clause.bindings) {
           condition = condition.replace('?', this.parameterPlaceholderFn(parameterIndex++));
           bindings.push(binding);
         }
-        
+
         const prefix = index === 0 ? '' : clause.type;
         whereConditions.push(`${prefix} ${condition}`.trim());
       });
-      
+
       parts.push(whereConditions.join(' '));
     }
 

@@ -8,7 +8,7 @@ export class StreamCrudTrait extends StreamBaseTrait {
     options?: {
       maxlen?: number;
       approximate?: boolean;
-    }
+    },
   ): Promise<string> {
     try {
       const args: (string | number)[] = [key];
@@ -28,7 +28,11 @@ export class StreamCrudTrait extends StreamBaseTrait {
         args.push(field, String(value));
       });
 
-      const resultId = await this.client.xadd(key, args[1] as string, ...args.slice(2) as string[]);
+      const resultId = await this.client.xadd(
+        key,
+        args[1] as string,
+        ...(args.slice(2) as string[]),
+      );
       return resultId || '';
     } catch (error) {
       this.throwError(`Failed to add to stream ${key}`, key, error as Error);
@@ -43,18 +47,14 @@ export class StreamCrudTrait extends StreamBaseTrait {
     }
   }
 
-  async xtrim(
-    key: string,
-    maxlen: number,
-    approximate = false
-  ): Promise<number> {
+  async xtrim(key: string, maxlen: number, approximate = false): Promise<number> {
     try {
       const args: (string | number)[] = [key, 'MAXLEN'];
-      
+
       if (approximate) {
         args.push('~');
       }
-      
+
       args.push(maxlen);
 
       return approximate

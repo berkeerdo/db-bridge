@@ -1,6 +1,6 @@
 /**
  * Query Builder Examples
- * 
+ *
  * This example demonstrates the powerful query builder
  * features of DB Bridge.
  */
@@ -15,20 +15,16 @@ async function basicQueries(db: DBBridge) {
   console.log('All users count:', allUsers.length);
 
   // SELECT with columns
-  const userNames = await db.table('users')
-    .select('id', 'name', 'email')
-    .get();
+  const userNames = await db.table('users').select('id', 'name', 'email').get();
   console.log('Selected columns:', Object.keys(userNames[0] || {}));
 
   // WHERE conditions
-  const activeUsers = await db.table('users')
-    .where('active', true)
-    .where('role', 'user')
-    .get();
+  const activeUsers = await db.table('users').where('active', true).where('role', 'user').get();
   console.log('Active users:', activeUsers.length);
 
   // Multiple WHERE conditions
-  const filteredUsers = await db.table('users')
+  const filteredUsers = await db
+    .table('users')
     .where('age', '>=', 18)
     .where('age', '<=', 65)
     .where('country', 'USA')
@@ -40,43 +36,30 @@ async function advancedQueries(db: DBBridge) {
   console.log('\n=== Advanced Query Builder ===');
 
   // WHERE IN
-  const admins = await db.table('users')
-    .whereIn('role', ['admin', 'superadmin'])
-    .get();
+  const admins = await db.table('users').whereIn('role', ['admin', 'superadmin']).get();
   console.log('Admin users:', admins.length);
 
   // WHERE NOT IN
-  const nonAdmins = await db.table('users')
-    .whereNotIn('role', ['admin', 'superadmin'])
-    .get();
+  const nonAdmins = await db.table('users').whereNotIn('role', ['admin', 'superadmin']).get();
   console.log('Non-admin users:', nonAdmins.length);
 
   // WHERE BETWEEN
-  const ageRange = await db.table('users')
-    .whereBetween('age', [25, 35])
-    .get();
+  const ageRange = await db.table('users').whereBetween('age', 25, 35).get();
   console.log('Users age 25-35:', ageRange.length);
 
   // WHERE NULL / NOT NULL
-  const verifiedUsers = await db.table('users')
-    .whereNotNull('email_verified_at')
-    .get();
+  const verifiedUsers = await db.table('users').whereNotNull('email_verified_at').get();
   console.log('Verified users:', verifiedUsers.length);
 
   // OR conditions
-  const specialUsers = await db.table('users')
-    .where('role', 'admin')
-    .orWhere('vip', true)
-    .get();
+  const specialUsers = await db.table('users').where('role', 'admin').orWhere('vip', true).get();
   console.log('Admin or VIP users:', specialUsers.length);
 
-  // Complex OR groups
-  const complexQuery = await db.table('users')
+  // Complex conditions with raw WHERE
+  const complexQuery = await db
+    .table('users')
     .where('active', true)
-    .where((qb) => {
-      qb.where('role', 'admin')
-        .orWhere('points', '>', 1000);
-    })
+    .whereRaw('(role = ? OR points > ?)', ['admin', 1000])
     .get();
   console.log('Complex query results:', complexQuery.length);
 }
@@ -85,14 +68,12 @@ async function sorting(db: DBBridge) {
   console.log('\n=== Sorting & Limiting ===');
 
   // ORDER BY single column
-  const sortedByName = await db.table('users')
-    .orderBy('name', 'asc')
-    .limit(10)
-    .get();
+  const sortedByName = await db.table('users').orderBy('name', 'asc').limit(10).get();
   console.log('First user by name:', sortedByName[0]?.name);
 
   // ORDER BY multiple columns
-  const multiSort = await db.table('users')
+  const multiSort = await db
+    .table('users')
     .orderBy('role', 'asc')
     .orderBy('created_at', 'desc')
     .limit(20)
@@ -102,7 +83,8 @@ async function sorting(db: DBBridge) {
   // LIMIT and OFFSET (pagination)
   const page = 2;
   const perPage = 10;
-  const paginated = await db.table('users')
+  const paginated = await db
+    .table('users')
     .orderBy('id')
     .limit(perPage)
     .offset((page - 1) * perPage)
@@ -118,9 +100,7 @@ async function aggregations(db: DBBridge) {
   console.log('Total users:', totalUsers);
 
   // COUNT with condition
-  const activeCount = await db.table('users')
-    .where('active', true)
-    .count();
+  const activeCount = await db.table('users').where('active', true).count();
   console.log('Active users count:', activeCount);
 
   // SUM
@@ -136,11 +116,12 @@ async function aggregations(db: DBBridge) {
   const maxAge = await db.table('users').max('age');
   console.log('Age range:', minAge, '-', maxAge);
 
-  // GROUP BY
-  const usersByRole = await db.table('users')
-    .select('role')
-    .count('id as count')
+  // GROUP BY with HAVING
+  const usersByRole = await db
+    .table('users')
+    .select('role', 'COUNT(*) as count')
     .groupBy('role')
+    .having('COUNT(*) > ?', [1])
     .get();
   console.log('Users by role:', usersByRole);
 }
@@ -148,31 +129,34 @@ async function aggregations(db: DBBridge) {
 async function joins(db: DBBridge) {
   console.log('\n=== JOIN Operations ===');
 
-  // INNER JOIN
-  const ordersWithUsers = await db.table('orders')
-    .join('users', 'orders.user_id', '=', 'users.id')
+  // INNER JOIN - pass table and ON condition as a string
+  const ordersWithUsers = await db
+    .table('orders')
+    .join('users', 'orders.user_id = users.id')
     .select('orders.*', 'users.name as customer_name')
     .get();
   console.log('Orders with customer names:', ordersWithUsers.length);
 
   // LEFT JOIN
-  const usersWithOrders = await db.table('users')
-    .leftJoin('orders', 'users.id', '=', 'orders.user_id')
+  const usersWithOrders = await db
+    .table('users')
+    .leftJoin('orders', 'users.id = orders.user_id')
     .select('users.name', 'orders.id as order_id')
     .get();
   console.log('Users with optional orders:', usersWithOrders.length);
 
   // Multiple JOINs
-  const fullOrderDetails = await db.table('order_items')
-    .join('orders', 'order_items.order_id', '=', 'orders.id')
-    .join('products', 'order_items.product_id', '=', 'products.id')
-    .join('users', 'orders.user_id', '=', 'users.id')
+  const fullOrderDetails = await db
+    .table('order_items')
+    .join('orders', 'order_items.order_id = orders.id')
+    .join('products', 'order_items.product_id = products.id')
+    .join('users', 'orders.user_id = users.id')
     .select(
       'order_items.quantity',
       'order_items.price',
       'products.name as product_name',
       'users.name as customer_name',
-      'orders.created_at as order_date'
+      'orders.created_at as order_date',
     )
     .where('orders.status', 'completed')
     .get();
@@ -183,61 +167,61 @@ async function rawQueries(db: DBBridge) {
   console.log('\n=== Raw Queries ===');
 
   // Raw WHERE conditions
-  const customWhere = await db.table('users')
-    .whereRaw('age > ? AND points > ?', [18, 100])
-    .get();
+  const customWhere = await db.table('users').whereRaw('age > ? AND points > ?', [18, 100]).get();
   console.log('Custom WHERE results:', customWhere.length);
 
-  // Raw SELECT
-  const rawSelect = await db.table('users')
+  // Raw ORDER BY
+  const rawOrder = await db
+    .table('products')
     .select('*')
-    .selectRaw('CONCAT(first_name, " ", last_name) as full_name')
-    .selectRaw('YEAR(CURDATE()) - YEAR(birth_date) as calculated_age')
+    .orderByRaw('FIELD(status, "featured", "active", "inactive")')
     .limit(5)
     .get();
-  console.log('Raw SELECT example:', rawSelect[0]);
+  console.log('Raw ORDER example:', rawOrder.length);
 
   // Full raw query
   const rawQuery = await db.query(
     'SELECT role, COUNT(*) as count FROM users GROUP BY role HAVING COUNT(*) > ?',
-    [5]
+    [5],
   );
   console.log('Raw query results:', rawQuery.rows);
 }
 
-async function subqueries(db: DBBridge) {
-  console.log('\n=== Subqueries ===');
+async function utilityMethods(db: DBBridge) {
+  console.log('\n=== Utility Methods ===');
 
-  // WHERE EXISTS
-  const usersWithOrders = await db.table('users')
-    .whereExists((qb) => {
-      qb.select('*')
-        .from('orders')
-        .whereRaw('orders.user_id = users.id');
-    })
-    .get();
-  console.log('Users with orders:', usersWithOrders.length);
+  // Clone a query
+  const baseQuery = db.table('users').where('active', true);
+  const admins = await baseQuery.clone().where('role', 'admin').get();
+  const moderators = await baseQuery.clone().where('role', 'moderator').get();
+  console.log('Admins:', admins.length, 'Moderators:', moderators.length);
 
-  // WHERE IN subquery
-  const highValueUsers = await db.table('users')
-    .whereIn('id', (qb) => {
-      qb.select('user_id')
-        .from('orders')
-        .where('total', '>', 1000);
-    })
-    .get();
-  console.log('High value users:', highValueUsers.length);
+  // Check existence
+  const hasUsers = await db.table('users').exists();
+  console.log('Has users:', hasUsers);
+
+  // Get exactly one record (throws if not exactly one)
+  try {
+    const uniqueUser = await db.table('users').where('email', 'admin@example.com').sole();
+    console.log('Sole user:', uniqueUser);
+  } catch (e) {
+    console.log('sole() threw:', (e as Error).message);
+  }
+
+  // Pluck a single column
+  const emails = await db.table('users').limit(5).pluck('email');
+  console.log('Emails:', emails);
 }
 
 // Main function
 async function main() {
   console.log('=== Query Builder Examples ===');
-  
+
   const db = DBBridge.mysql({
     host: 'localhost',
     user: 'root',
     password: '',
-    database: 'test_db'
+    database: 'test_db',
   });
 
   try {
@@ -251,8 +235,7 @@ async function main() {
     await aggregations(db);
     await joins(db);
     await rawQueries(db);
-    await subqueries(db);
-
+    await utilityMethods(db);
   } catch (error) {
     console.error('Error:', error);
   } finally {

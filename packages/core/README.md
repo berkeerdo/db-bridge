@@ -32,20 +32,20 @@ interface DatabaseAdapter {
   connect(config: ConnectionConfig): Promise<void>;
   disconnect(): Promise<void>;
   ping(): Promise<boolean>;
-  
+
   // Query execution
   query<T>(sql: string, params?: any[], options?: QueryOptions): Promise<QueryResult<T>>;
   execute(sql: string, params?: any[], options?: QueryOptions): Promise<QueryResult>;
-  
+
   // Prepared statements
   prepare(sql: string, name?: string): Promise<PreparedStatement>;
-  
+
   // Transactions
   beginTransaction(options?: TransactionOptions): Promise<Transaction>;
-  
+
   // Query builder
   createQueryBuilder<T>(): QueryBuilder<T>;
-  
+
   // Utilities
   escape(value: any): string;
   escapeIdentifier(identifier: string): string;
@@ -64,19 +64,19 @@ class MyAdapter extends BaseAdapter {
   protected async doConnect(config: ConnectionConfig): Promise<void> {
     // Implementation
   }
-  
+
   protected async doDisconnect(): Promise<void> {
     // Implementation
   }
-  
+
   protected async doQuery<T>(
     sql: string,
     params?: any[],
-    options?: QueryOptions
+    options?: QueryOptions,
   ): Promise<QueryResult<T>> {
     // Implementation
   }
-  
+
   // Other required methods...
 }
 ```
@@ -93,13 +93,13 @@ interface QueryBuilder<T> {
   select(...columns: string[]): QueryBuilder<T>;
   select(columns: string[]): QueryBuilder<T>;
   from(table: string, alias?: string): QueryBuilder<T>;
-  
+
   // JOIN
   join(table: string, condition: string, type?: JoinType): QueryBuilder<T>;
   leftJoin(table: string, condition: string): QueryBuilder<T>;
   rightJoin(table: string, condition: string): QueryBuilder<T>;
   innerJoin(table: string, condition: string): QueryBuilder<T>;
-  
+
   // WHERE
   where(column: string, operator: string, value: any): QueryBuilder<T>;
   where(conditions: Record<string, any>): QueryBuilder<T>;
@@ -109,21 +109,21 @@ interface QueryBuilder<T> {
   whereNotBetween(column: string, min: any, max: any): QueryBuilder<T>;
   whereNull(column: string): QueryBuilder<T>;
   whereNotNull(column: string): QueryBuilder<T>;
-  
+
   // Grouping & Ordering
   groupBy(...columns: string[]): QueryBuilder<T>;
   having(condition: string, value?: any): QueryBuilder<T>;
   orderBy(column: string, direction?: 'ASC' | 'DESC'): QueryBuilder<T>;
-  
+
   // Limit & Offset
   limit(limit: number): QueryBuilder<T>;
   offset(offset: number): QueryBuilder<T>;
-  
+
   // DML
   insert(table: string, data: Record<string, any> | Record<string, any>[]): QueryBuilder<T>;
   update(table: string, data: Record<string, any>): QueryBuilder<T>;
   delete(table: string): QueryBuilder<T>;
-  
+
   // Execution
   toSQL(): { sql: string; bindings: any[] };
   execute(options?: QueryOptions): Promise<QueryResult<T>>;
@@ -140,16 +140,16 @@ import { Transaction, IsolationLevel } from '@db-bridge/core';
 
 interface Transaction {
   id: string;
-  
+
   // Transaction control
   commit(): Promise<void>;
   rollback(): Promise<void>;
-  
+
   // Savepoints (if supported)
   savepoint(name: string): Promise<void>;
   rollbackToSavepoint(name: string): Promise<void>;
   releaseSavepoint(name: string): Promise<void>;
-  
+
   // Query execution within transaction
   query<T>(sql: string, params?: any[]): Promise<QueryResult<T>>;
   execute(sql: string, params?: any[]): Promise<QueryResult>;
@@ -160,7 +160,7 @@ enum IsolationLevel {
   READ_UNCOMMITTED = 'READ UNCOMMITTED',
   READ_COMMITTED = 'READ COMMITTED',
   REPEATABLE_READ = 'REPEATABLE READ',
-  SERIALIZABLE = 'SERIALIZABLE'
+  SERIALIZABLE = 'SERIALIZABLE',
 }
 ```
 
@@ -175,7 +175,7 @@ import {
   QueryError,
   TransactionError,
   ValidationError,
-  TimeoutError
+  TimeoutError,
 } from '@db-bridge/core';
 
 // Base error class
@@ -235,8 +235,8 @@ const result = await retry(
     exponentialBackoff: true,
     onRetry: (error, attempt) => {
       console.log(`Retry attempt ${attempt} after error:`, error);
-    }
-  }
+    },
+  },
 );
 ```
 
@@ -336,12 +336,12 @@ import {
   Transaction,
   PreparedStatement,
   ConnectionError,
-  QueryError
+  QueryError,
 } from '@db-bridge/core';
 
 export class CustomAdapter extends BaseAdapter {
   private connection: any;
-  
+
   protected async doConnect(config: ConnectionConfig): Promise<void> {
     try {
       this.connection = await customDriver.connect(config);
@@ -349,35 +349,35 @@ export class CustomAdapter extends BaseAdapter {
       throw new ConnectionError('Failed to connect', { cause: error });
     }
   }
-  
+
   protected async doDisconnect(): Promise<void> {
     if (this.connection) {
       await this.connection.close();
       this.connection = null;
     }
   }
-  
+
   protected async doQuery<T>(
     sql: string,
     params: any[] = [],
-    options: QueryOptions = {}
+    options: QueryOptions = {},
   ): Promise<QueryResult<T>> {
     try {
       const result = await this.connection.query(sql, params);
       return {
         rows: result.rows,
         rowCount: result.rowCount,
-        fields: result.fields
+        fields: result.fields,
       };
     } catch (error) {
       throw new QueryError('Query failed', {
         cause: error,
         sql,
-        params
+        params,
       });
     }
   }
-  
+
   protected async doPing(): Promise<boolean> {
     try {
       await this.connection.query('SELECT 1');
@@ -386,23 +386,23 @@ export class CustomAdapter extends BaseAdapter {
       return false;
     }
   }
-  
+
   async beginTransaction(options?: TransactionOptions): Promise<Transaction> {
     // Implementation
   }
-  
+
   async prepare(sql: string, name?: string): Promise<PreparedStatement> {
     // Implementation
   }
-  
+
   escape(value: any): string {
     // Implementation
   }
-  
+
   escapeIdentifier(identifier: string): string {
     // Implementation
   }
-  
+
   getPoolStats(): PoolStats {
     // Implementation
   }

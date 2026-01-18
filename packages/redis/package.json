@@ -1,9 +1,8 @@
 {
+  "type": "module",
   "name": "@db-bridge/redis",
-  "version": "1.0.0",
+  "version": "1.1.5",
   "description": "Redis caching and operations for db-bridge",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "files": [
     "dist/**/*",
@@ -13,8 +12,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": "./dist/index.js"
     }
   },
   "scripts": {
@@ -27,18 +25,26 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@db-bridge/core": "^1.0.0",
-    "ioredis": "^5.3.2"
-  },
-  "devDependencies": {
-    "@types/node": "^20.10.0",
-    "@vitest/coverage-v8": "^1.0.0",
-    "tsup": "^8.0.1",
-    "typescript": "^5.3.0",
-    "vitest": "^1.0.0"
+    "@db-bridge/core": "^1.1.3"
   },
   "peerDependencies": {
-    "@db-bridge/core": "^1.0.0"
+    "ioredis": "^5.4.0"
+  },
+  "peerDependenciesMeta": {
+    "ioredis": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
+    "ioredis": "^5.9.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   },
   "publishConfig": {
     "access": "public"

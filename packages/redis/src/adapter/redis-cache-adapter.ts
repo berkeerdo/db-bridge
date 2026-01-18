@@ -1,5 +1,12 @@
-import { RedisAdapter } from './redis-adapter';
-import { CacheAdapter, DatabaseAdapter, QueryResult, CacheOptions, QueryParams, QueryOptions } from '@db-bridge/core';
+import type { RedisAdapter } from './redis-adapter';
+import type {
+  CacheAdapter,
+  DatabaseAdapter,
+  QueryResult,
+  CacheOptions,
+  QueryParams,
+  QueryOptions,
+} from '@db-bridge/core';
 
 export interface RedisCacheAdapterOptions {
   redis: RedisAdapter;
@@ -36,9 +43,9 @@ export class RedisCacheAdapter {
   ): Promise<void> {
     const fullKey = this.getQueryKey(key, options);
     const ttl = options?.ttl || this.defaultTTL;
-    
+
     await this.redis.set(fullKey, result, ttl);
-    
+
     if (options?.invalidateOn) {
       await this.registerInvalidation(fullKey, options.invalidateOn);
     }
@@ -49,14 +56,14 @@ export class RedisCacheAdapter {
 
     for (const pattern of patterns) {
       const keys = await this.redis.keys(`${this.keyPrefix}${pattern}`);
-      
+
       for (const key of keys) {
         const deleted = await this.redis.delete(key);
         if (deleted) {
           invalidatedCount++;
         }
       }
-      
+
       const registeredKeys = this.invalidationPatterns.get(pattern) || [];
       for (const key of registeredKeys) {
         const deleted = await this.redis.delete(key);
@@ -71,11 +78,11 @@ export class RedisCacheAdapter {
 
   async invalidateAll(): Promise<void> {
     const keys = await this.redis.keys(`${this.keyPrefix}*`);
-    
+
     if (keys.length > 0) {
       await Promise.all(keys.map((key) => this.redis.delete(key)));
     }
-    
+
     this.invalidationPatterns.clear();
   }
 
@@ -85,8 +92,8 @@ export class RedisCacheAdapter {
     patterns: string[];
   }> {
     const keys = await this.redis.keys(`${this.keyPrefix}*`);
-    
-    let totalSize = 0;
+
+    const totalSize = 0;
     const patterns = new Set<string>();
 
     return {
@@ -131,38 +138,38 @@ export function createDatabaseAdapterWithCache(
     queryOptions?: QueryOptions,
   ): Promise<QueryResult<T>> {
     const command = sql.trim().split(' ')[0]?.toUpperCase();
-    
+
     if (!queryOptions?.cache || !cacheableCommands.includes(command!)) {
       return originalQuery<T>(sql, params, queryOptions);
     }
 
     const cacheOptions = typeof queryOptions.cache === 'object' ? queryOptions.cache : {};
     const cacheKey = generateQueryCacheKey(sql, params);
-    
+
     const cached = await cacheAdapter.get<QueryResult<T>>(cacheKey);
     if (cached) {
       return cached;
     }
 
     const result = await originalQuery<T>(sql, params, queryOptions);
-    
+
     const ttl = cacheOptions.ttl || defaultTTL;
     await cacheAdapter.set(cacheKey, result, ttl);
 
-    return result as QueryResult<T>;
+    return result;
   };
 
   return adapter;
 }
 
 function generateQueryCacheKey(sql: string, params?: QueryParams): string {
-  const crypto = require('crypto');
+  const crypto = require('node:crypto');
   const hash = crypto.createHash('sha256');
   hash.update(sql);
-  
+
   if (params) {
     hash.update(JSON.stringify(params));
   }
-  
+
   return hash.digest('hex');
 }

@@ -9,12 +9,12 @@ export { MySQLConnectionPool } from './pool/connection-pool';
 // Note: New simplified API coming soon
 
 // Re-export core types
-export type { 
+export type {
   DatabaseAdapter,
   QueryBuilder,
   Transaction,
   PreparedStatement,
   ConnectionConfig,
   QueryResult,
-  QueryOptions
+  QueryOptions,
 } from '@db-bridge/core';

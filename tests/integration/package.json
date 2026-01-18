@@ -1,0 +1,5 @@
+{
+  "name": "@db-bridge/integration-tests",
+  "private": true,
+  "type": "module"
+}

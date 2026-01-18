@@ -4,7 +4,7 @@
 
 - [Migrating from Raw Database Drivers](#migrating-from-raw-database-drivers)
   - [From mysql2](#from-mysql2)
-  - [From pg](#from-pg)  
+  - [From pg](#from-pg)
   - [From ioredis](#from-ioredis)
 - [Migrating from Other ORMs/Query Builders](#migrating-from-other-ormsquery-builders)
   - [From Knex.js](#from-knexjs)
@@ -21,6 +21,7 @@
 If you're currently using `mysql2` directly:
 
 #### Before (mysql2)
+
 ```javascript
 const mysql = require('mysql2/promise');
 
@@ -28,18 +29,16 @@ const connection = await mysql.createConnection({
   host: 'localhost',
   user: 'root',
   password: 'password',
-  database: 'myapp'
+  database: 'myapp',
 });
 
-const [rows] = await connection.execute(
-  'SELECT * FROM users WHERE role = ?',
-  ['admin']
-);
+const [rows] = await connection.execute('SELECT * FROM users WHERE role = ?', ['admin']);
 
 await connection.end();
 ```
 
 #### After (DB Bridge)
+
 ```typescript
 import { MySQLAdapter } from '@db-bridge/mysql';
 
@@ -49,19 +48,17 @@ await adapter.connect({
   host: 'localhost',
   user: 'root',
   password: 'password',
-  database: 'myapp'
+  database: 'myapp',
 });
 
-const result = await adapter.query(
-  'SELECT * FROM users WHERE role = ?',
-  ['admin']
-);
+const result = await adapter.query('SELECT * FROM users WHERE role = ?', ['admin']);
 const rows = result.rows;
 
 await adapter.disconnect();
 ```
 
 #### Key Differences
+
 1. **Connection Pooling**: DB Bridge uses connection pooling by default
 2. **Result Format**: Results are wrapped in a `QueryResult` object
 3. **Error Handling**: Typed errors for better error handling
@@ -72,6 +69,7 @@ await adapter.disconnect();
 If you're currently using `pg` (node-postgres):
 
 #### Before (pg)
+
 ```javascript
 const { Client } = require('pg');
 
@@ -79,20 +77,18 @@ const client = new Client({
   host: 'localhost',
   user: 'postgres',
   password: 'password',
-  database: 'myapp'
+  database: 'myapp',
 });
 
 await client.connect();
 
-const result = await client.query(
-  'SELECT * FROM users WHERE role = $1',
-  ['admin']
-);
+const result = await client.query('SELECT * FROM users WHERE role = $1', ['admin']);
 
 await client.end();
 ```
 
 #### After (DB Bridge)
+
 ```typescript
 import { PostgreSQLAdapter } from '@db-bridge/postgresql';
 
@@ -100,20 +96,18 @@ const adapter = new PostgreSQLAdapter();
 
 await adapter.connect({
   host: 'localhost',
-  user: 'postgres', 
+  user: 'postgres',
   password: 'password',
-  database: 'myapp'
+  database: 'myapp',
 });
 
-const result = await adapter.query(
-  'SELECT * FROM users WHERE role = $1',
-  ['admin']
-);
+const result = await adapter.query('SELECT * FROM users WHERE role = $1', ['admin']);
 
 await adapter.disconnect();
 ```
 
 #### Key Differences
+
 1. **Unified API**: Same API across different databases
 2. **Query Builder**: Built-in query builder for complex queries
 3. **Transaction Management**: Enhanced transaction support with savepoints
@@ -124,6 +118,7 @@ await adapter.disconnect();
 If you're currently using `ioredis`:
 
 #### Before (ioredis)
+
 ```javascript
 const Redis = require('ioredis');
 const redis = new Redis();
@@ -136,6 +131,7 @@ redis.disconnect();
 ```
 
 #### After (DB Bridge)
+
 ```typescript
 import { RedisAdapter } from '@db-bridge/redis';
 
@@ -149,6 +145,7 @@ await redis.disconnect();
 ```
 
 #### Key Differences
+
 1. **Automatic JSON Handling**: Automatic serialization/deserialization
 2. **Unified API**: Consistent with other DB Bridge adapters
 3. **Caching Layer**: Can be used as a caching layer for other databases
@@ -159,6 +156,7 @@ await redis.disconnect();
 ### From Knex.js
 
 #### Before (Knex.js)
+
 ```javascript
 const knex = require('knex')({
   client: 'mysql2',
@@ -166,19 +164,17 @@ const knex = require('knex')({
     host: 'localhost',
     user: 'root',
     password: 'password',
-    database: 'myapp'
-  }
+    database: 'myapp',
+  },
 });
 
-const users = await knex('users')
-  .where('role', 'admin')
-  .orderBy('created_at', 'desc')
-  .limit(10);
+const users = await knex('users').where('role', 'admin').orderBy('created_at', 'desc').limit(10);
 
 await knex.destroy();
 ```
 
 #### After (DB Bridge)
+
 ```typescript
 import { MySQLAdapter } from '@db-bridge/mysql';
 
@@ -200,15 +196,16 @@ await adapter.disconnect();
 ### From TypeORM
 
 #### Before (TypeORM)
+
 ```typescript
 @Entity()
 class User {
   @PrimaryGeneratedColumn()
   id: number;
-  
+
   @Column()
   name: string;
-  
+
   @Column()
   role: string;
 }
@@ -216,15 +213,16 @@ class User {
 const users = await userRepository.find({
   where: { role: 'admin' },
   order: { createdAt: 'DESC' },
-  take: 10
+  take: 10,
 });
 ```
 
 #### After (DB Bridge with Repository Pattern)
+
 ```typescript
 class UserRepository {
   constructor(private adapter: DatabaseAdapter) {}
-  
+
   async findByRole(role: string, limit: number = 10) {
     const qb = this.adapter.createQueryBuilder<User>();
     return qb
@@ -244,20 +242,22 @@ const users = await userRepo.findByRole('admin');
 ### From Sequelize
 
 #### Before (Sequelize)
+
 ```javascript
 const User = sequelize.define('User', {
   name: DataTypes.STRING,
-  role: DataTypes.STRING
+  role: DataTypes.STRING,
 });
 
 const users = await User.findAll({
   where: { role: 'admin' },
   order: [['createdAt', 'DESC']],
-  limit: 10
+  limit: 10,
 });
 ```
 
 #### After (DB Bridge)
+
 ```typescript
 const adapter = new MySQLAdapter();
 const qb = adapter.createQueryBuilder();
@@ -301,19 +301,19 @@ Run both implementations in parallel during transition:
 class UserService {
   constructor(
     private oldDb: mysql.Connection,
-    private newDb: DatabaseAdapter
+    private newDb: DatabaseAdapter,
   ) {}
-  
+
   async getUsers() {
     // Run both implementations
     const [oldResult] = await this.oldDb.execute('SELECT * FROM users');
     const newResult = await this.newDb.query('SELECT * FROM users');
-    
+
     // Compare results in development
     if (process.env['NODE_ENV'] === 'development') {
       assert.deepEqual(oldResult, newResult.rows);
     }
-    
+
     // Return new implementation
     return newResult.rows;
   }
@@ -328,7 +328,7 @@ Use feature flags to switch between implementations:
 class DatabaseService {
   private adapter?: DatabaseAdapter;
   private legacyDb?: any;
-  
+
   async query(sql: string, params?: any[]) {
     if (featureFlags.useNewDatabase) {
       return this.adapter.query(sql, params);
@@ -344,6 +344,7 @@ class DatabaseService {
 ### Connection Management
 
 #### Old Pattern
+
 ```javascript
 // Create connection for each request
 app.get('/users', async (req, res) => {
@@ -358,6 +359,7 @@ app.get('/users', async (req, res) => {
 ```
 
 #### New Pattern
+
 ```typescript
 // Use connection pool (initialized once)
 const adapter = new MySQLAdapter();
@@ -377,6 +379,7 @@ process.on('SIGTERM', async () => {
 ### Transaction Handling
 
 #### Old Pattern
+
 ```javascript
 const conn = await mysql.getConnection();
 await conn.beginTransaction();
@@ -394,6 +397,7 @@ try {
 ```
 
 #### New Pattern
+
 ```typescript
 const tx = await adapter.beginTransaction();
 
@@ -410,6 +414,7 @@ try {
 ### Error Handling
 
 #### Old Pattern
+
 ```javascript
 try {
   await connection.execute(sql);
@@ -423,6 +428,7 @@ try {
 ```
 
 #### New Pattern
+
 ```typescript
 import { QueryError } from '@db-bridge/core';
 
@@ -448,7 +454,8 @@ try {
 
 **Problem**: "Connection refused" errors
 
-**Solution**: 
+**Solution**:
+
 1. Check connection configuration matches your database
 2. Ensure database service is running
 3. Verify network connectivity
@@ -459,8 +466,8 @@ try {
 const adapter = new MySQLAdapter({
   logger: console,
   mysql2Options: {
-    debug: true
-  }
+    debug: true,
+  },
 });
 ```
 
@@ -469,6 +476,7 @@ const adapter = new MySQLAdapter({
 **Problem**: Queries are slower than before
 
 **Solution**:
+
 1. Check connection pool settings
 2. Enable prepared statements for repeated queries
 3. Use query builder for complex queries (better optimization)
@@ -478,7 +486,7 @@ const adapter = new MySQLAdapter({
 await adapter.connect({
   ...config,
   connectionLimit: 20,
-  queueLimit: 0
+  queueLimit: 0,
 });
 
 // Use prepared statements
@@ -490,6 +498,7 @@ const stmt = await adapter.prepare('SELECT * FROM users WHERE id = ?');
 **Problem**: TypeScript errors after migration
 
 **Solution**:
+
 1. Add type annotations to queries
 2. Use query builder for better type inference
 3. Define interfaces for your data
@@ -505,11 +514,7 @@ interface User {
 const users = await adapter.query<User>('SELECT * FROM users');
 
 // Or use query builder
-const users = await adapter
-  .createQueryBuilder<User>()
-  .select('*')
-  .from('users')
-  .execute();
+const users = await adapter.createQueryBuilder<User>().select('*').from('users').execute();
 ```
 
 ### Memory Leaks
@@ -517,6 +522,7 @@ const users = await adapter
 **Problem**: Memory usage increases over time
 
 **Solution**:
+
 1. Ensure you're using connection pooling
 2. Release prepared statements when done
 3. Close transactions properly
@@ -527,7 +533,7 @@ const users = await adapter
 setInterval(() => {
   const stats = adapter.getPoolStats();
   console.log('Pool stats:', stats);
-  
+
   if (stats.waiting > 10) {
     console.warn('Many connections waiting!');
   }
@@ -540,7 +546,7 @@ If you encounter issues during migration:
 
 1. Check the [examples](../examples/) directory
 2. Review the [API documentation](./api.md)
-3. Search [GitHub issues](https://github.com/berkeerdogan/db-bridge/issues)
+3. Search [GitHub issues](https://github.com/berkeerdo/db-bridge/issues)
 4. Create a new issue with:
    - Your current setup
    - Migration approach

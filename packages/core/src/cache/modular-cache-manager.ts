@@ -1,7 +1,9 @@
-import { CacheAdapter } from '../interfaces';
-import { Logger } from '../types';
+import { DefaultCacheStrategy } from './cache-strategy';
 import { CacheMaintenanceTrait } from './traits/cache-maintenance-trait';
-import { CacheStrategy, DefaultCacheStrategy } from './cache-strategy';
+
+import type { CacheStrategy } from './cache-strategy';
+import type { CacheAdapter } from '../interfaces';
+import type { Logger } from '../types';
 
 export * from './cache-strategy';
 export * from './traits/cache-base-trait';
@@ -18,7 +20,7 @@ export class ModularCacheManager extends CacheMaintenanceTrait {
       strategy?: CacheStrategy;
       logger?: Logger;
       enabled?: boolean;
-    } = {}
+    } = {},
   ) {
     super(cache, options.logger, options.enabled ?? true);
     this.strategy = options.strategy || new DefaultCacheStrategy();

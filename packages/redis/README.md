@@ -28,14 +28,14 @@ import { RedisAdapter } from '@db-bridge/redis';
 
 const cache = new RedisAdapter({
   keyPrefix: 'myapp:',
-  ttl: 3600 // Default TTL: 1 hour
+  ttl: 3600, // Default TTL: 1 hour
 });
 
 // Connect
 await cache.connect({
   host: 'localhost',
   port: 6379,
-  password: 'your-password'
+  password: 'your-password',
 });
 
 // Basic operations
@@ -60,15 +60,13 @@ const redis = new RedisAdapter({ keyPrefix: 'cache:' });
 const db = new CachedAdapter({
   adapter: mysql,
   cache: redis,
-  defaultTTL: 300 // 5 minutes
+  defaultTTL: 300, // 5 minutes
 });
 
 // Queries are automatically cached
-const users = await db.query(
-  'SELECT * FROM users WHERE role = ?',
-  ['admin'],
-  { cache: { key: 'admin-users', ttl: 600 } }
-);
+const users = await db.query('SELECT * FROM users WHERE role = ?', ['admin'], {
+  cache: { key: 'admin-users', ttl: 600 },
+});
 ```
 
 ## Configuration
@@ -106,28 +104,28 @@ interface RedisConnectionConfig {
 const redis = new RedisAdapter({
   // Key prefix for all operations
   keyPrefix: 'myapp:cache:',
-  
+
   // Default TTL in seconds
   ttl: 3600,
-  
+
   // Logger instance
   logger: console,
-  
+
   // Connection timeout
   connectionTimeout: 5000,
-  
+
   // Command timeout
   commandTimeout: 2500,
-  
+
   // Enable compression for large values
   enableCompression: true,
-  
+
   // ioredis specific options
   redis: {
     maxRetriesPerRequest: 3,
     enableAutoPipelining: true,
-    retryStrategy: (times) => Math.min(times * 50, 2000)
-  }
+    retryStrategy: (times) => Math.min(times * 50, 2000),
+  },
 });
 ```
 
@@ -168,7 +166,7 @@ for (const key of keys) {
 await redis.mset([
   { key: 'user:1', value: { name: 'Alice' }, ttl: 3600 },
   { key: 'user:2', value: { name: 'Bob' }, ttl: 3600 },
-  { key: 'user:3', value: { name: 'Charlie' }, ttl: 3600 }
+  { key: 'user:3', value: { name: 'Charlie' }, ttl: 3600 },
 ]);
 
 // Batch get
@@ -213,7 +211,7 @@ const cachedDb = new CachedAdapter({
   defaultTTL: 300,
   strategy: 'lazy', // 'lazy' | 'eager' | 'refresh'
   cacheableCommands: ['SELECT'], // Only cache SELECT queries
-  logger: console
+  logger: console,
 });
 
 // Automatic caching with custom key
@@ -224,17 +222,13 @@ const products = await cachedDb.query(
     cache: {
       key: 'products:electronics',
       ttl: 600,
-      tags: ['products', 'electronics']
-    }
-  }
+      tags: ['products', 'electronics'],
+    },
+  },
 );
 
 // Disable cache for specific query
-const realtimeData = await cachedDb.query(
-  'SELECT * FROM active_sessions',
-  [],
-  { cache: false }
-);
+const realtimeData = await cachedDb.query('SELECT * FROM active_sessions', [], { cache: false });
 
 // Manual cache invalidation
 const cacheManager = cachedDb.getCacheManager();
@@ -317,11 +311,9 @@ const result = await commands.eval(script, 1, 'key', 'oldValue', 'newValue');
 
 ```typescript
 // Tag-based invalidation
-await cachedDb.query(
-  'SELECT * FROM products WHERE category = ?',
-  ['electronics'],
-  { cache: { tags: ['products', 'electronics'] } }
-);
+await cachedDb.query('SELECT * FROM products WHERE category = ?', ['electronics'], {
+  cache: { tags: ['products', 'electronics'] },
+});
 
 // Invalidate by tag
 await cacheManager.invalidateByTags(['electronics']);
@@ -330,10 +322,7 @@ await cacheManager.invalidateByTags(['electronics']);
 await cacheManager.invalidatePattern('products:*');
 
 // Automatic invalidation on mutations
-const result = await cachedDb.execute(
-  'UPDATE products SET price = ? WHERE id = ?',
-  [99.99, 123]
-); // Automatically invalidates related cache
+const result = await cachedDb.execute('UPDATE products SET price = ? WHERE id = ?', [99.99, 123]); // Automatically invalidates related cache
 ```
 
 ### Cache Warming
@@ -342,7 +331,7 @@ const result = await cachedDb.execute(
 // Pre-warm cache on startup
 const warmupQueries = [
   { sql: 'SELECT * FROM config', key: 'app:config', ttl: 86400 },
-  { sql: 'SELECT * FROM categories', key: 'categories:all', ttl: 3600 }
+  { sql: 'SELECT * FROM categories', key: 'categories:all', ttl: 3600 },
 ];
 
 for (const query of warmupQueries) {
@@ -380,14 +369,14 @@ const redis = new RedisAdapter({
   cluster: [
     { host: 'redis1', port: 6379 },
     { host: 'redis2', port: 6379 },
-    { host: 'redis3', port: 6379 }
+    { host: 'redis3', port: 6379 },
   ],
   clusterOptions: {
     enableReadyCheck: true,
     maxRedirections: 16,
     retryDelayOnFailover: 100,
-    retryDelayOnClusterDown: 300
-  }
+    retryDelayOnClusterDown: 300,
+  },
 });
 
 // Sentinel
@@ -395,10 +384,10 @@ const redis = new RedisAdapter({
   sentinels: [
     { host: 'sentinel1', port: 26379 },
     { host: 'sentinel2', port: 26379 },
-    { host: 'sentinel3', port: 26379 }
+    { host: 'sentinel3', port: 26379 },
   ],
   name: 'mymaster',
-  sentinelPassword: 'sentinel-password'
+  sentinelPassword: 'sentinel-password',
 });
 ```
 
@@ -464,8 +453,8 @@ await redis.set<CachedUser>('user:123', {
   email: 'john@example.com',
   preferences: {
     theme: 'dark',
-    notifications: true
-  }
+    notifications: true,
+  },
 });
 
 const user = await redis.get<CachedUser>('user:123');

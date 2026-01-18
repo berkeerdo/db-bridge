@@ -1,6 +1,12 @@
-import { PoolConfig, types } from 'pg';
-import {
-  BaseAdapter,
+import { BaseAdapter, ConnectionError, QueryError, TransactionError } from '@db-bridge/core';
+import { types } from 'pg';
+
+import { PostgreSQLPreparedStatement } from './postgresql-prepared-statement';
+import { PostgreSQLTransaction } from './postgresql-transaction';
+import { PostgreSQLConnectionPool } from '../pool/connection-pool';
+import { PostgreSQLQueryBuilder } from '../query-builder/postgresql-query-builder';
+
+import type {
   BaseAdapterOptions,
   ConnectionConfig,
   QueryResult,
@@ -10,14 +16,8 @@ import {
   TransactionOptions,
   PreparedStatement,
   PoolStats,
-  ConnectionError,
-  QueryError,
-  TransactionError,
 } from '@db-bridge/core';
-import { PostgreSQLConnectionPool } from '../pool/connection-pool';
-import { PostgreSQLTransaction } from './postgresql-transaction';
-import { PostgreSQLPreparedStatement } from './postgresql-prepared-statement';
-import { PostgreSQLQueryBuilder } from '../query-builder/postgresql-query-builder';
+import type { PoolConfig } from 'pg';
 
 export interface PostgreSQLAdapterOptions extends BaseAdapterOptions {
   pgOptions?: PoolConfig;
@@ -37,7 +37,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
     super(options);
     this.pgOptions = options.pgOptions;
     this.parseTypes = options.parseTypes ?? true;
-    
+
     if (this.parseTypes) {
       this.configurePgTypes();
     }
@@ -66,7 +66,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
 
     this.pool = new PostgreSQLConnectionPool(poolConfig);
     await this.pool.initialize();
-    
+
     this.logger?.info('Connected to PostgreSQL database', { database: config.database });
   }
 
@@ -99,6 +99,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
       const queryResult: QueryResult<T> = {
         rows: result.rows as T[],
         rowCount: result.rowCount || 0,
+        affectedRows: result.rowCount || 0,
         fields: result.fields?.map((field) => ({
           name: field.name,
           type: this.getFieldType(field.dataTypeID),
@@ -150,7 +151,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
 
     const client = await this.pool.getClient();
     const stmtName = name || `stmt_${this.preparedStatements.size + 1}`;
-    
+
     if (!this.preparedStatements.has(stmtName)) {
       this.preparedStatements.set(stmtName, sql);
     }
@@ -193,28 +194,28 @@ export class PostgreSQLAdapter extends BaseAdapter {
     if (value === null || value === undefined) {
       return 'NULL';
     }
-    
+
     if (typeof value === 'string') {
-      return `'${value.replace(/'/g, "''")}'`;
+      return `'${value.replaceAll("'", "''")}'`;
     }
-    
+
     if (typeof value === 'boolean') {
       return value ? 'TRUE' : 'FALSE';
     }
-    
+
     if (value instanceof Date) {
       return `'${value.toISOString()}'`;
     }
-    
+
     if (typeof value === 'object') {
-      return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+      return `'${JSON.stringify(value).replaceAll("'", "''")}'`;
     }
-    
+
     return String(value);
   }
 
   override escapeIdentifier(identifier: string): string {
-    return `"${identifier.replace(/"/g, '""')}"`;
+    return `"${identifier.replaceAll('"', '""')}"`;
   }
 
   createQueryBuilder<T = unknown>(): PostgreSQLQueryBuilder<T> {
@@ -240,14 +241,14 @@ export class PostgreSQLAdapter extends BaseAdapter {
 
   private configurePgTypes(): void {
     types.setTypeParser(types.builtins.INT8, (val: string) => {
-      const num = parseInt(val, 10);
+      const num = Number.parseInt(val, 10);
       return Number.isSafeInteger(num) ? num : val;
     });
 
-    types.setTypeParser(types.builtins.FLOAT4, (val: string) => parseFloat(val));
-    types.setTypeParser(types.builtins.FLOAT8, (val: string) => parseFloat(val));
-    types.setTypeParser(types.builtins.NUMERIC, (val: string) => parseFloat(val));
-    
+    types.setTypeParser(types.builtins.FLOAT4, (val: string) => Number.parseFloat(val));
+    types.setTypeParser(types.builtins.FLOAT8, (val: string) => Number.parseFloat(val));
+    types.setTypeParser(types.builtins.NUMERIC, (val: string) => Number.parseFloat(val));
+
     types.setTypeParser(types.builtins.DATE, (val: string) => new Date(val));
     types.setTypeParser(types.builtins.TIMESTAMP, (val: string) => new Date(val));
     types.setTypeParser(types.builtins.TIMESTAMPTZ, (val: string) => new Date(val));

@@ -1,7 +1,8 @@
-import { CacheAdapter, Logger } from '@db-bridge/core';
-import { RedisOptions } from 'ioredis';
 import { CounterOperationsTrait } from './traits/counter-operations-trait';
 import { RedisCommands } from '../commands/redis-commands';
+
+import type { CacheAdapter, Logger } from '@db-bridge/core';
+import type { RedisOptions } from 'ioredis';
 
 export interface RedisAdapterOptions {
   redis?: RedisOptions;
@@ -53,7 +54,7 @@ export class ModularRedisAdapter extends CounterOperationsTrait implements Cache
   }
 
   override async set<T = unknown>(key: string, value: T, ttl?: number): Promise<void> {
-    const effectiveTtl = ttl !== undefined ? ttl : this.defaultTtl;
+    const effectiveTtl = ttl === undefined ? this.defaultTtl : ttl;
     await super.set(key, value, effectiveTtl);
   }
 
@@ -67,11 +68,11 @@ export class ModularRedisAdapter extends CounterOperationsTrait implements Cache
   protected override serialize<T>(value: T): string {
     try {
       const json = super.serialize(value);
-      
+
       if (this.enableCompression && json.length > 1024) {
         return this.compress(json);
       }
-      
+
       return json;
     } catch (error) {
       this.logger?.error('Serialization error', error as Error);
@@ -84,7 +85,7 @@ export class ModularRedisAdapter extends CounterOperationsTrait implements Cache
       if (this.enableCompression && this.isCompressed(value)) {
         value = this.decompress(value);
       }
-      
+
       return super.deserialize<T>(value);
     } catch (error) {
       this.logger?.error('Deserialization error', error as Error);
@@ -108,7 +109,9 @@ export class ModularRedisAdapter extends CounterOperationsTrait implements Cache
   }
 
   private setupLogging(): void {
-    if (!this.logger) return;
+    if (!this.logger) {
+      return;
+    }
 
     this.on('error', (error: Error) => {
       this.logger?.error('Redis client error', error);

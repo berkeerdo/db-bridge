@@ -1,6 +1,7 @@
-import { DatabaseAdapter } from '../../interfaces';
-import { QueryParams } from '../../types';
 import { TraceManagementTrait } from './trace-management-trait';
+
+import type { DatabaseAdapter } from '../../interfaces';
+import type { QueryParams } from '../../types';
 
 export interface QueryPlan {
   query: string;
@@ -23,7 +24,12 @@ export class QueryAnalysisTrait extends TraceManagementTrait {
   }> = [];
   protected queryPlans = new Map<string, QueryPlan>();
 
-  constructor(adapter: DatabaseAdapter, slowQueryThreshold = 1000, maxTraces = 10000, enabled = true) {
+  constructor(
+    adapter: DatabaseAdapter,
+    slowQueryThreshold = 1000,
+    maxTraces = 10_000,
+    enabled = true,
+  ) {
     super(maxTraces, enabled);
     this.adapter = adapter;
     this.slowQueryThreshold = slowQueryThreshold;
@@ -33,17 +39,19 @@ export class QueryAnalysisTrait extends TraceManagementTrait {
     super.endTrace(id, error);
 
     const trace = this.traces.get(id);
-    if (!trace || !trace.duration) return;
+    if (!trace?.duration) {
+      return;
+    }
 
     // Check for slow operations
     if (trace.duration > this.slowQueryThreshold && trace.operation.includes('query')) {
       const queryInfo = {
-        query: trace.metadata['sql'] as string || '',
+        query: (trace.metadata['sql'] as string) || '',
         duration: trace.duration,
         timestamp: new Date(),
         params: trace.metadata['params'] as unknown[],
       };
-      
+
       this.slowQueries.push(queryInfo);
       this.emit('slowQuery', queryInfo);
 
@@ -55,11 +63,13 @@ export class QueryAnalysisTrait extends TraceManagementTrait {
   }
 
   async explainQuery(sql: string, params?: QueryParams): Promise<QueryPlan | null> {
-    if (!this.enabled) return null;
+    if (!this.enabled) {
+      return null;
+    }
 
     try {
       let explainSql: string;
-      
+
       // Database-specific EXPLAIN syntax
       if (this.adapter.name === 'PostgreSQL') {
         explainSql = `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${sql}`;
@@ -70,7 +80,7 @@ export class QueryAnalysisTrait extends TraceManagementTrait {
       }
 
       const result = await this.adapter.query(explainSql, params);
-      
+
       if (result.rows.length > 0) {
         const plan = this.parseExplainResult(result.rows[0] as Record<string, unknown>);
         if (plan) {
@@ -88,9 +98,9 @@ export class QueryAnalysisTrait extends TraceManagementTrait {
   protected parseExplainResult(result: Record<string, unknown>): QueryPlan | null {
     try {
       if (this.adapter.name === 'PostgreSQL') {
-        const planData = result['QUERY PLAN'] as any[] || result;
+        const planData = (result['QUERY PLAN'] as any[]) || result;
         const plan = Array.isArray(planData) ? planData[0] : planData;
-        
+
         return {
           query: plan.Query || '',
           plan: JSON.stringify(plan.Plan || plan),
@@ -103,7 +113,7 @@ export class QueryAnalysisTrait extends TraceManagementTrait {
       } else if (this.adapter.name === 'MySQL') {
         const plan = typeof result === 'string' ? JSON.parse(result as string) : result;
         const queryBlock = plan.query_block || {};
-        
+
         return {
           query: '',
           plan: JSON.stringify(plan),
@@ -112,7 +122,7 @@ export class QueryAnalysisTrait extends TraceManagementTrait {
           width: 0,
         };
       }
-    } catch (error) {
+    } catch {
       // Failed to parse
     }
 

@@ -1,13 +1,11 @@
-import Redis, { RedisOptions } from 'ioredis';
-import {
-  CacheAdapter,
-  CacheError,
-  ConnectionError,
-  Logger,
-  withTimeout,
-} from '@db-bridge/core';
+import { CacheError, ConnectionError, withTimeout } from '@db-bridge/core';
 import { EventEmitter } from 'eventemitter3';
+import Redis from 'ioredis';
+
 import { RedisCommands } from '../commands/redis-commands';
+
+import type { CacheAdapter, Logger } from '@db-bridge/core';
+import type { RedisOptions } from 'ioredis';
 
 export interface RedisAdapterOptions {
   redis?: RedisOptions;
@@ -27,7 +25,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
   private client?: Redis;
   private isConnected = false;
   private _commands?: RedisCommands;
-  private readonly options: Omit<Required<RedisAdapterOptions>, 'logger' | 'retryOptions'> & { 
+  private readonly options: Omit<Required<RedisAdapterOptions>, 'logger' | 'retryOptions'> & {
     logger?: Logger;
     retryOptions: {
       maxRetries: number;
@@ -37,7 +35,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
 
   constructor(options: RedisAdapterOptions = {}) {
     super();
-    
+
     this.options = {
       redis: options.redis || {},
       keyPrefix: options.keyPrefix || 'db-bridge:',
@@ -64,7 +62,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
       lazyConnect: true,
       enableOfflineQueue: false,
       retryStrategy: (times: number) => {
-        const retryOptions = this.options.retryOptions!;
+        const retryOptions = this.options.retryOptions;
         if (times > retryOptions.maxRetries) {
           return null;
         }
@@ -112,13 +110,10 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
 
   async get<T = unknown>(key: string): Promise<T | null> {
     this.ensureConnected();
-    
+
     try {
       const fullKey = this.getFullKey(key);
-      const value = await withTimeout(
-        this.client!.get(fullKey),
-        this.options.commandTimeout,
-      );
+      const value = await withTimeout(this.client!.get(fullKey), this.options.commandTimeout);
 
       if (!value) {
         return null;
@@ -144,10 +139,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
           this.options.commandTimeout,
         );
       } else {
-        await withTimeout(
-          this.client!.set(fullKey, serialized),
-          this.options.commandTimeout,
-        );
+        await withTimeout(this.client!.set(fullKey, serialized), this.options.commandTimeout);
       }
 
       this.emit('set', { key, ttl: expiry });
@@ -161,10 +153,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
 
     try {
       const fullKey = this.getFullKey(key);
-      const result = await withTimeout(
-        this.client!.del(fullKey),
-        this.options.commandTimeout,
-      );
+      const result = await withTimeout(this.client!.del(fullKey), this.options.commandTimeout);
 
       const deleted = result > 0;
       if (deleted) {
@@ -182,10 +171,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
 
     try {
       const fullKey = this.getFullKey(key);
-      const result = await withTimeout(
-        this.client!.exists(fullKey),
-        this.options.commandTimeout,
-      );
+      const result = await withTimeout(this.client!.exists(fullKey), this.options.commandTimeout);
 
       return result > 0;
     } catch (error) {
@@ -221,10 +207,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
 
     try {
       const fullKeys = keys.map((key) => this.getFullKey(key));
-      const values = await withTimeout(
-        this.client!.mget(...fullKeys),
-        this.options.commandTimeout,
-      );
+      const values = await withTimeout(this.client!.mget(...fullKeys), this.options.commandTimeout);
 
       return values.map((value) => {
         if (!value) {
@@ -237,9 +220,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
     }
   }
 
-  async mset<T = unknown>(
-    items: Array<{ key: string; value: T; ttl?: number }>,
-  ): Promise<void> {
+  async mset<T = unknown>(items: Array<{ key: string; value: T; ttl?: number }>): Promise<void> {
     this.ensureConnected();
 
     if (items.length === 0) {
@@ -276,10 +257,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
         ? pattern
         : this.getFullKey(pattern);
 
-      const keys = await withTimeout(
-        this.scanKeys(fullPattern),
-        this.options.commandTimeout * 5,
-      );
+      const keys = await withTimeout(this.scanKeys(fullPattern), this.options.commandTimeout * 5);
 
       return keys.map((key) => key.replace(this.options.keyPrefix, ''));
     } catch (error) {
@@ -292,10 +270,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
 
     try {
       const fullKey = this.getFullKey(key);
-      const ttl = await withTimeout(
-        this.client!.ttl(fullKey),
-        this.options.commandTimeout,
-      );
+      const ttl = await withTimeout(this.client!.ttl(fullKey), this.options.commandTimeout);
 
       return ttl >= 0 ? ttl : -1;
     } catch (error) {
@@ -358,6 +333,196 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
     }
   }
 
+  async ping(): Promise<string> {
+    this.ensureConnected();
+    return this.client!.ping();
+  }
+
+  async flushdb(): Promise<void> {
+    this.ensureConnected();
+    await this.client!.flushdb();
+  }
+
+  async mdel(keys: string[]): Promise<number> {
+    this.ensureConnected();
+    if (keys.length === 0) {
+      return 0;
+    }
+    const fullKeys = keys.map((k) => this.getFullKey(k));
+    return this.client!.del(...fullKeys);
+  }
+
+  async persist(key: string): Promise<boolean> {
+    this.ensureConnected();
+    const fullKey = this.getFullKey(key);
+    const result = await this.client!.persist(fullKey);
+    return result === 1;
+  }
+
+  /**
+   * Set key with NX (only if not exists) - useful for distributed locking
+   */
+  async setNX(key: string, value: unknown, ttl?: number): Promise<boolean> {
+    this.ensureConnected();
+    const fullKey = this.getFullKey(key);
+    const serialized = JSON.stringify(value);
+
+    if (ttl) {
+      // SET key value EX ttl NX
+      const result = await this.client!.set(fullKey, serialized, 'EX', ttl, 'NX');
+      return result === 'OK';
+    } else {
+      const result = await this.client!.setnx(fullKey, serialized);
+      return result === 1;
+    }
+  }
+
+  // Hash operations
+  async hset(key: string, field: string, value: string): Promise<number> {
+    this.ensureConnected();
+    return this.client!.hset(this.getFullKey(key), field, value);
+  }
+
+  async hget(key: string, field: string): Promise<string | null> {
+    this.ensureConnected();
+    return this.client!.hget(this.getFullKey(key), field);
+  }
+
+  async hgetall(key: string): Promise<Record<string, string>> {
+    this.ensureConnected();
+    return this.client!.hgetall(this.getFullKey(key));
+  }
+
+  async hexists(key: string, field: string): Promise<boolean> {
+    this.ensureConnected();
+    const result = await this.client!.hexists(this.getFullKey(key), field);
+    return result === 1;
+  }
+
+  async hdel(key: string, ...fields: string[]): Promise<number> {
+    this.ensureConnected();
+    return this.client!.hdel(this.getFullKey(key), ...fields);
+  }
+
+  // List operations
+  async lpush(key: string, ...values: string[]): Promise<number> {
+    this.ensureConnected();
+    return this.client!.lpush(this.getFullKey(key), ...values);
+  }
+
+  async rpush(key: string, ...values: string[]): Promise<number> {
+    this.ensureConnected();
+    return this.client!.rpush(this.getFullKey(key), ...values);
+  }
+
+  async lpop(key: string): Promise<string | null> {
+    this.ensureConnected();
+    return this.client!.lpop(this.getFullKey(key));
+  }
+
+  async rpop(key: string): Promise<string | null> {
+    this.ensureConnected();
+    return this.client!.rpop(this.getFullKey(key));
+  }
+
+  async llen(key: string): Promise<number> {
+    this.ensureConnected();
+    return this.client!.llen(this.getFullKey(key));
+  }
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    this.ensureConnected();
+    return this.client!.lrange(this.getFullKey(key), start, stop);
+  }
+
+  // Set operations
+  async sadd(key: string, ...members: string[]): Promise<number> {
+    this.ensureConnected();
+    return this.client!.sadd(this.getFullKey(key), ...members);
+  }
+
+  async srem(key: string, ...members: string[]): Promise<number> {
+    this.ensureConnected();
+    return this.client!.srem(this.getFullKey(key), ...members);
+  }
+
+  async smembers(key: string): Promise<string[]> {
+    this.ensureConnected();
+    return this.client!.smembers(this.getFullKey(key));
+  }
+
+  async sismember(key: string, member: string): Promise<boolean> {
+    this.ensureConnected();
+    const result = await this.client!.sismember(this.getFullKey(key), member);
+    return result === 1;
+  }
+
+  async scard(key: string): Promise<number> {
+    this.ensureConnected();
+    return this.client!.scard(this.getFullKey(key));
+  }
+
+  // Sorted set operations
+  async zadd(key: string, score: number, member: string): Promise<number> {
+    this.ensureConnected();
+    return this.client!.zadd(this.getFullKey(key), score, member);
+  }
+
+  async zrem(key: string, ...members: string[]): Promise<number> {
+    this.ensureConnected();
+    return this.client!.zrem(this.getFullKey(key), ...members);
+  }
+
+  async zrange(key: string, start: number, stop: number): Promise<string[]> {
+    this.ensureConnected();
+    return this.client!.zrange(this.getFullKey(key), start, stop);
+  }
+
+  async zrangeWithScores(key: string, start: number, stop: number): Promise<[string, number][]> {
+    this.ensureConnected();
+    const result = await this.client!.zrange(this.getFullKey(key), start, stop, 'WITHSCORES');
+    const pairs: [string, number][] = [];
+    for (let i = 0; i < result.length; i += 2) {
+      const member = result[i];
+      const score = result[i + 1];
+      if (member !== undefined && score !== undefined) {
+        pairs.push([member, Number.parseFloat(score)]);
+      }
+    }
+    return pairs;
+  }
+
+  async zscore(key: string, member: string): Promise<number | null> {
+    this.ensureConnected();
+    const result = await this.client!.zscore(this.getFullKey(key), member);
+    return result === null ? null : Number.parseFloat(result);
+  }
+
+  async zcard(key: string): Promise<number> {
+    this.ensureConnected();
+    return this.client!.zcard(this.getFullKey(key));
+  }
+
+  // Scan iterator
+  async *scan(pattern: string): AsyncGenerator<string> {
+    this.ensureConnected();
+    const fullPattern = this.getFullKey(pattern);
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = await this.client!.scan(
+        cursor,
+        'MATCH',
+        fullPattern,
+        'COUNT',
+        100,
+      );
+      cursor = nextCursor;
+      for (const key of keys) {
+        yield key.replace(this.options.keyPrefix, '');
+      }
+    } while (cursor !== '0');
+  }
+
   private ensureConnected(): void {
     if (!this.client || !this.isConnected) {
       throw new ConnectionError('Redis client not connected');
@@ -382,11 +547,11 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
   private serialize<T>(value: T): string {
     try {
       const json = JSON.stringify(value);
-      
+
       if (this.options.enableCompression && json.length > 1024) {
         return this.compress(json);
       }
-      
+
       return json;
     } catch (error) {
       throw new CacheError('Failed to serialize value', undefined, error as Error);
@@ -398,7 +563,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
       if (this.options.enableCompression && this.isCompressed(value)) {
         value = this.decompress(value);
       }
-      
+
       return JSON.parse(value) as T;
     } catch (error) {
       throw new CacheError('Failed to deserialize value', undefined, error as Error);
@@ -429,7 +594,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
         'COUNT',
         1000,
       );
-      
+
       cursor = nextCursor;
       keys.push(...scannedKeys);
     } while (cursor !== '0');

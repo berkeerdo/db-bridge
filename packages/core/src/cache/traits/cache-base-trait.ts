@@ -1,6 +1,7 @@
 import { EventEmitter } from 'eventemitter3';
-import { CacheAdapter } from '../../interfaces';
-import { Logger } from '../../types';
+
+import type { CacheAdapter } from '../../interfaces';
+import type { Logger } from '../../types';
 
 export interface CacheStatistics {
   hits: number;
@@ -24,7 +25,7 @@ export class CacheBaseTrait extends EventEmitter {
     this.cache = cache;
     this.logger = logger;
     this.enabled = enabled;
-    
+
     this.statistics = {
       hits: 0,
       misses: 0,
@@ -69,12 +70,13 @@ export class CacheBaseTrait extends EventEmitter {
   protected updateStatistics(type: 'hit' | 'miss', duration: number): void {
     if (type === 'hit') {
       this.statistics.hits++;
-      this.statistics.avgHitTime = 
+      this.statistics.avgHitTime =
         (this.statistics.avgHitTime * (this.statistics.hits - 1) + duration) / this.statistics.hits;
     } else {
       this.statistics.misses++;
-      this.statistics.avgMissTime = 
-        (this.statistics.avgMissTime * (this.statistics.misses - 1) + duration) / this.statistics.misses;
+      this.statistics.avgMissTime =
+        (this.statistics.avgMissTime * (this.statistics.misses - 1) + duration) /
+        this.statistics.misses;
     }
 
     const total = this.statistics.hits + this.statistics.misses;

@@ -1,5 +1,6 @@
-import { DatabaseAdapter } from '../interfaces';
 import { AdapterWrapperTrait } from './traits/adapter-wrapper-trait';
+
+import type { DatabaseAdapter } from '../interfaces';
 
 export * from './traits/trace-base-trait';
 export * from './traits/query-analysis-trait';
@@ -16,13 +17,13 @@ export class ModularPerformanceMonitor extends AdapterWrapperTrait {
       slowQueryThreshold?: number;
       maxTraces?: number;
       enabled?: boolean;
-    } = {}
+    } = {},
   ) {
     super(
       adapter,
       options.slowQueryThreshold ?? 1000,
-      options.maxTraces ?? 10000,
-      options.enabled ?? true
+      options.maxTraces ?? 10_000,
+      options.enabled ?? true,
     );
   }
 }

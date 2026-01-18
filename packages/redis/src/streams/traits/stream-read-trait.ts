@@ -1,5 +1,6 @@
 import { StreamCrudTrait } from './stream-crud-trait';
-import { StreamEntry } from './stream-base-trait';
+
+import type { StreamEntry } from './stream-base-trait';
 
 export class StreamReadTrait extends StreamCrudTrait {
   async xread(
@@ -7,7 +8,7 @@ export class StreamReadTrait extends StreamCrudTrait {
     options?: {
       count?: number;
       block?: number;
-    }
+    },
   ): Promise<Array<[string, StreamEntry[]]>> {
     try {
       const args: (string | number)[] = [];
@@ -20,16 +21,18 @@ export class StreamReadTrait extends StreamCrudTrait {
       }
 
       args.push('STREAMS');
-      
+
       const keys = Object.keys(streams);
       const ids = Object.values(streams);
       args.push(...keys, ...ids);
 
       const result = await (this.client as any).xread(...args);
-      
-      if (!result) return [];
 
-      return this.parseStreamResults(result as any);
+      if (!result) {
+        return [];
+      }
+
+      return this.parseStreamResults(result);
     } catch (error) {
       this.throwError('Failed to read from streams', undefined, error as Error);
     }
@@ -39,16 +42,16 @@ export class StreamReadTrait extends StreamCrudTrait {
     key: string,
     start: string = '-',
     end: string = '+',
-    count?: number
+    count?: number,
   ): Promise<StreamEntry[]> {
     try {
       const args: (string | number)[] = [key, start, end];
-      
+
       if (count) {
         args.push('COUNT', count);
       }
 
-      const result = count 
+      const result = count
         ? await this.client.xrange(key, start, end, 'COUNT', count)
         : await this.client.xrange(key, start, end);
       return this.parseEntries(result as any);
@@ -61,11 +64,11 @@ export class StreamReadTrait extends StreamCrudTrait {
     key: string,
     end: string = '+',
     start: string = '-',
-    count?: number
+    count?: number,
   ): Promise<StreamEntry[]> {
     try {
       const args: (string | number)[] = [key, end, start];
-      
+
       if (count) {
         args.push('COUNT', count);
       }

@@ -5,12 +5,14 @@
 The Redis package has been refactored from a monolithic structure to a modular, trait-based architecture for better maintainability and code quality.
 
 ### Before (Monolithic)
+
 ```
 RedisAdapter: 439 lines, 28 methods
 RedisStreams: 453 lines, 44 methods
 ```
 
 ### After (Modular)
+
 ```
 ModularRedisAdapter
 ├── ConnectionTrait (~100 lines)
@@ -34,13 +36,13 @@ ModularRedisStreamManager
 // Old way (still works)
 const redis = new RedisAdapter({
   keyPrefix: 'myapp:',
-  ttl: 3600
+  ttl: 3600,
 });
 
 // New way (recommended)
 const redis = new ModularRedisAdapter({
   keyPrefix: 'myapp:',
-  ttl: 3600
+  ttl: 3600,
 });
 ```
 

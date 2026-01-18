@@ -1,16 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BaseAdapter, ConnectionConfig, QueryResult, QueryOptions, QueryParams } from '../index';
+
+import { BaseAdapter } from '../index';
+
+import type { ConnectionConfig, QueryResult, QueryOptions, QueryParams } from '../index';
 
 class TestAdapter extends BaseAdapter {
   readonly name = 'TestAdapter';
   readonly version = '1.0.0';
 
   protected async doConnect(config: ConnectionConfig): Promise<void> {
-    return Promise.resolve();
+    return;
   }
 
   protected async doDisconnect(): Promise<void> {
-    return Promise.resolve();
+    return;
   }
 
   protected async doQuery<T = unknown>(
@@ -18,11 +21,11 @@ class TestAdapter extends BaseAdapter {
     params?: QueryParams,
     options?: QueryOptions,
   ): Promise<QueryResult<T>> {
-    return Promise.resolve({
+    return {
       rows: [],
       rowCount: 0,
       fields: [],
-    });
+    };
   }
 }
 
@@ -50,9 +53,7 @@ describe('BaseAdapter', () => {
     });
 
     it('should validate connection config', async () => {
-      await expect(adapter.connect({} as ConnectionConfig)).rejects.toThrow(
-        'Host is required',
-      );
+      await expect(adapter.connect({} as ConnectionConfig)).rejects.toThrow('Host is required');
     });
 
     it('should emit connect event', async () => {

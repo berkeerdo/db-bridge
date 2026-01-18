@@ -94,7 +94,7 @@ docker run -d \
 
 ```bash
 # Clone the repository
-git clone https://github.com/berkeerdogan/db-bridge.git
+git clone https://github.com/berkeerdo/db-bridge.git
 cd db-bridge
 
 # Install dependencies
@@ -238,10 +238,7 @@ describe('MySQLAdapter', () => {
     });
 
     it('should handle parameterized queries', async () => {
-      const result = await adapter.query(
-        'SELECT * FROM users WHERE id = ?',
-        [123]
-      );
+      const result = await adapter.query('SELECT * FROM users WHERE id = ?', [123]);
       expect(result.rows).toHaveLength(1);
     });
   });
@@ -265,6 +262,7 @@ npm run test:integration:redis
 ### Before Submitting
 
 1. **Test your changes**:
+
    ```bash
    npm test
    npm run lint
@@ -289,7 +287,7 @@ npm run test:integration:redis
 ### PR Guidelines
 
 1. **Title**: Clear, concise description
-2. **Description**: 
+2. **Description**:
    - What changes were made
    - Why they were necessary
    - Breaking changes
@@ -357,13 +355,13 @@ adapter-name/
 ```typescript
 /**
  * Executes a SQL query with optional parameters
- * 
+ *
  * @param sql - The SQL query string
  * @param params - Optional query parameters
  * @param options - Query execution options
  * @returns Query result with rows and metadata
  * @throws {QueryError} If query execution fails
- * 
+ *
  * @example
  * const result = await adapter.query(
  *   'SELECT * FROM users WHERE role = ?',
@@ -410,13 +408,14 @@ We follow [Semantic Versioning](https://semver.org/):
 ### Release Steps
 
 1. **Prepare Release**:
+
    ```bash
    # Update versions
    npm run version -- --bump minor
-   
+
    # Update changelogs
    npm run changelog
-   
+
    # Build and test
    npm run build
    npm test
@@ -428,11 +427,12 @@ We follow [Semantic Versioning](https://semver.org/):
    - List breaking changes
 
 3. **After Merge**:
+
    ```bash
    # Tag release
    git tag v{version}
    git push origin v{version}
-   
+
    # Publish to npm
    npm run publish
    ```
@@ -443,18 +443,22 @@ We follow [Semantic Versioning](https://semver.org/):
 ## [1.2.0] - 2025-01-15
 
 ### Added
+
 - Connection pooling support for MySQL adapter
 - Query timeout options
 
 ### Fixed
+
 - Memory leak in prepared statements
 - Transaction rollback error handling
 
 ### Changed
+
 - Improved error messages for connection failures
 - Updated minimum Node.js version to 16
 
 ### Breaking Changes
+
 - Renamed `executeSQL` to `execute` for consistency
 ```
 

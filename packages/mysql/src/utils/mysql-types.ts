@@ -1,4 +1,4 @@
-import { FieldPacket } from 'mysql2';
+import type { FieldPacket } from 'mysql2';
 
 export const MYSQL_TYPE_MAP: Record<number, string> = {
   0: 'DECIMAL',

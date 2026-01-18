@@ -1,4 +1,5 @@
 import { CacheError, withTimeout } from '@db-bridge/core';
+
 import { BatchOperationsTrait } from './batch-operations-trait';
 
 export class CounterOperationsTrait extends BatchOperationsTrait {
@@ -7,10 +8,7 @@ export class CounterOperationsTrait extends BatchOperationsTrait {
 
     try {
       const fullKey = this.getFullKey(key);
-      const result = await withTimeout(
-        this.client!.incrby(fullKey, value),
-        this.commandTimeout,
-      );
+      const result = await withTimeout(this.client!.incrby(fullKey, value), this.commandTimeout);
 
       return result;
     } catch (error) {
@@ -23,10 +21,7 @@ export class CounterOperationsTrait extends BatchOperationsTrait {
 
     try {
       const fullKey = this.getFullKey(key);
-      const result = await withTimeout(
-        this.client!.decrby(fullKey, value),
-        this.commandTimeout,
-      );
+      const result = await withTimeout(this.client!.decrby(fullKey, value), this.commandTimeout);
 
       return result;
     } catch (error) {

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A comprehensive database management library with Redis caching support",
   "private": true,
+  "type": "module",
   "author": "Berke Erdoğan",
   "license": "MIT",
   "keywords": [
@@ -15,13 +16,13 @@
     "typescript",
     "query-builder"
   ],
-  "homepage": "https://github.com/berkeerdogan/db-bridge#readme",
+  "homepage": "https://github.com/berkeerdo/db-bridge#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/berkeerdogan/db-bridge.git"
+    "url": "git+https://github.com/berkeerdo/db-bridge.git"
   },
   "bugs": {
-    "url": "https://github.com/berkeerdogan/db-bridge/issues"
+    "url": "https://github.com/berkeerdo/db-bridge/issues"
   },
   "workspaces": [
     "packages/*"
@@ -34,11 +35,13 @@
     "test:integration:coverage": "cd tests/integration && npx vitest run --coverage",
     "test:all": "npm run test && npm run test:integration",
     "lint": "lerna run lint",
+    "lint:fix": "lerna run lint -- --fix",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,tsx,js,jsx,json,md}\"",
     "typecheck": "lerna run typecheck",
     "clean": "lerna run clean",
     "dev": "lerna run dev --parallel",
-    "publish": "lerna publish",
-    "version": "lerna version",
+    "release": "lerna publish",
     "bootstrap": "lerna bootstrap",
     "prepare": "husky install",
     "docker:test:up": "docker-compose -f docker-compose.test.yml up -d",
@@ -50,17 +53,25 @@
     "test:redis": "tsx examples/08-testing/local-redis-test.ts",
     "example:mysql": "tsx examples/01-basic/mysql-basic.ts",
     "example:pg": "tsx examples/01-basic/postgresql-basic.ts",
-    "example:redis": "tsx examples/01-basic/redis-basic.ts"
+    "example:redis": "tsx examples/01-basic/redis-basic.ts",
+    "benchmark": "tsx benchmarks/query-builder.bench.ts",
+    "benchmark:all": "tsx benchmarks/query-builder.bench.ts && tsx benchmarks/adapter.bench.ts"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@commitlint/cli": "^20.3.1",
+    "@commitlint/config-conventional": "^20.3.1",
+    "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "eslint": "^8.55.0",
     "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-prettier": "^5.0.1",
+    "eslint-plugin-security": "^3.0.1",
+    "eslint-plugin-unicorn": "^48.0.1",
     "husky": "^8.0.3",
     "lerna": "^8.0.0",
+    "lint-staged": "^16.2.7",
     "prettier": "^3.1.0",
     "rimraf": "^5.0.5",
     "typescript": "^5.3.0"
