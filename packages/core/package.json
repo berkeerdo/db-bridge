@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@db-bridge/core",
-  "version": "1.1.5",
+  "version": "1.1.7",
   "description": "Core database abstraction layer for db-bridge",
   "types": "dist/index.d.ts",
   "bin": {

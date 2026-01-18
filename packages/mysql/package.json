@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@db-bridge/mysql",
-  "version": "1.1.5",
+  "version": "1.1.7",
   "description": "MySQL adapter for db-bridge",
   "types": "dist/index.d.ts",
   "files": [
@@ -25,7 +25,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@db-bridge/core": "^1.1.3"
+    "@db-bridge/core": "^1.1.7"
   },
   "peerDependencies": {
     "mysql2": "^3.9.0 || ^4.0.0"
