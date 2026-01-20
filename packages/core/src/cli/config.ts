@@ -38,6 +38,18 @@ export interface DBBridgeConfig {
     /** Prefix for seed filenames (e.g., 'auth' -> auth_01_users.ts) */
     prefix?: string;
   };
+
+  /** Type generation settings */
+  types?: {
+    /** Output file path for generated types */
+    output?: string;
+    /** Tables to include (if empty, includes all) */
+    tables?: string[];
+    /** Tables to exclude */
+    exclude?: string[];
+    /** Use camelCase for property names */
+    camelCase?: boolean;
+  };
 }
 
 /**
@@ -148,6 +160,11 @@ function applyDefaults(config: DBBridgeConfig): DBBridgeConfig {
     seeds: {
       directory: './src/seeds',
       ...config.seeds,
+    },
+    types: {
+      output: './src/types/database.ts',
+      camelCase: false,
+      ...config.types,
     },
   };
 }

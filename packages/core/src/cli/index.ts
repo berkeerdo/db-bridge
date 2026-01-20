@@ -7,6 +7,7 @@
 import { parseArgs } from 'node:util';
 
 import { freshCommand } from './commands/fresh';
+import { generateTypesCommand } from './commands/generate-types';
 import { latestCommand } from './commands/latest';
 import { makeCommand } from './commands/make';
 import { makeSeederCommand } from './commands/make-seeder';
@@ -38,12 +39,20 @@ Seed Commands:
   db:seed                 Run database seeders
   db:seed --class=<name>  Run a specific seeder
 
+Type Generation:
+  generate:types          Generate TypeScript interfaces from schema
+
 Options:
   --help, -h              Show this help message
   --version, -v           Show version number
   --dry-run               Show what would be done without executing
   --step=<n>              Number of batches to rollback (for rollback command)
   --class=<name>          Specific seeder class to run (for db:seed)
+  --output=<path>         Output file path (for generate:types)
+  --tables=<list>         Comma-separated list of tables to include
+  --exclude=<list>        Comma-separated list of tables to exclude
+  --camel-case            Use camelCase for property names
+  --comments              Include JSDoc comments (default: true)
 
 Examples:
   db-bridge migrate:make create_users_table
@@ -52,6 +61,8 @@ Examples:
   db-bridge make:seeder users
   db-bridge db:seed
   db-bridge db:seed --class=users
+  db-bridge generate:types
+  db-bridge generate:types --output=./src/types/db.ts --camel-case
 `;
 
 interface CLIOptions {
@@ -60,6 +71,11 @@ interface CLIOptions {
   dryRun?: boolean;
   step?: number;
   class?: string;
+  output?: string;
+  tables?: string;
+  exclude?: string;
+  camelCase?: boolean;
+  comments?: boolean;
 }
 
 async function main(): Promise<void> {
@@ -79,6 +95,11 @@ async function main(): Promise<void> {
         'dry-run': { type: 'boolean' },
         step: { type: 'string' },
         class: { type: 'string' },
+        output: { type: 'string' },
+        tables: { type: 'string' },
+        exclude: { type: 'string' },
+        'camel-case': { type: 'boolean' },
+        comments: { type: 'boolean' },
       },
       allowPositionals: true,
     });
@@ -89,6 +110,11 @@ async function main(): Promise<void> {
       dryRun: values['dry-run'],
       step: values.step ? parseInt(values.step, 10) : undefined,
       class: values.class,
+      output: values.output,
+      tables: values.tables,
+      exclude: values.exclude,
+      camelCase: values['camel-case'],
+      comments: values.comments,
     };
 
     command = positionals[0] || '';
@@ -100,6 +126,8 @@ async function main(): Promise<void> {
     options.help = args.includes('--help') || args.includes('-h');
     options.version = args.includes('--version') || args.includes('-v');
     options.dryRun = args.includes('--dry-run');
+    options.camelCase = args.includes('--camel-case');
+    options.comments = args.includes('--comments');
 
     const stepArg = args.find((a) => a.startsWith('--step='));
     if (stepArg) {
@@ -109,6 +137,21 @@ async function main(): Promise<void> {
     const classArg = args.find((a) => a.startsWith('--class='));
     if (classArg) {
       options.class = classArg.split('=')[1];
+    }
+
+    const outputArg = args.find((a) => a.startsWith('--output='));
+    if (outputArg) {
+      options.output = outputArg.split('=')[1];
+    }
+
+    const tablesArg = args.find((a) => a.startsWith('--tables='));
+    if (tablesArg) {
+      options.tables = tablesArg.split('=')[1];
+    }
+
+    const excludeArg = args.find((a) => a.startsWith('--exclude='));
+    if (excludeArg) {
+      options.exclude = excludeArg.split('=')[1];
     }
   }
 
@@ -184,6 +227,17 @@ async function main(): Promise<void> {
 
       case 'db:seed': {
         await seedCommand({ class: options.class });
+        break;
+      }
+
+      case 'generate:types': {
+        await generateTypesCommand({
+          output: options.output,
+          tables: options.tables,
+          exclude: options.exclude,
+          camelCase: options.camelCase,
+          comments: options.comments,
+        });
         break;
       }
 

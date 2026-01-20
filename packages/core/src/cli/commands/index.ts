@@ -14,3 +14,6 @@ export { validateCommand } from './validate';
 // Seed commands
 export { seedCommand, type SeedOptions } from './seed';
 export { makeSeederCommand } from './make-seeder';
+
+// Type generation
+export { generateTypesCommand, type GenerateTypesOptions } from './generate-types';

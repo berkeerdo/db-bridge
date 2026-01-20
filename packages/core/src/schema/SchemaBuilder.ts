@@ -20,14 +20,19 @@ import type { DatabaseAdapter } from '../interfaces';
 export interface SchemaBuilderOptions {
   dialect: Dialect;
   adapter?: DatabaseAdapter;
+  /** When true, collects SQL statements instead of executing them */
+  collectMode?: boolean;
 }
 
 export class SchemaBuilder {
   private dialectInstance: SchemaDialect;
   private adapter?: DatabaseAdapter;
+  private collectMode: boolean;
+  private collectedStatements: string[] = [];
 
   constructor(options: SchemaBuilderOptions) {
     this.adapter = options.adapter;
+    this.collectMode = options.collectMode ?? false;
 
     switch (options.dialect) {
       case 'mysql': {
@@ -154,6 +159,16 @@ export class SchemaBuilder {
    * Execute SQL statement
    */
   private async execute(sql: string, params?: unknown[]): Promise<void> {
+    // In collect mode, just store the SQL
+    if (this.collectMode) {
+      let statement = sql;
+      if (params && params.length > 0) {
+        statement += ` -- params: ${JSON.stringify(params)}`;
+      }
+      this.collectedStatements.push(statement);
+      return;
+    }
+
     if (this.adapter) {
       // Cast params to the expected type
       await this.adapter.execute(sql, params as import('../types').QueryParams);
@@ -166,6 +181,20 @@ export class SchemaBuilder {
         console.log('Params:', params);
       }
     }
+  }
+
+  /**
+   * Get collected SQL statements (only in collectMode)
+   */
+  getCollectedStatements(): string[] {
+    return [...this.collectedStatements];
+  }
+
+  /**
+   * Clear collected SQL statements
+   */
+  clearCollectedStatements(): void {
+    this.collectedStatements = [];
   }
 
   /**

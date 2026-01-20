@@ -206,12 +206,157 @@ npx db-bridge migrate:fresh
 # Validate migration checksums
 npx db-bridge migrate:validate
 
+# Preview migrations without executing (dry-run)
+npx db-bridge migrate:latest --dry-run
+
 # Create a seeder
 npx db-bridge make:seeder users
 
 # Run seeders
 npx db-bridge db:seed
+
+# Generate TypeScript types from database schema
+npx db-bridge generate:types
+
+# Generate types with options
+npx db-bridge generate:types --output=./src/types/db.ts --camel-case
 ```
+
+### Type Generation
+
+Generate TypeScript interfaces directly from your database schema:
+
+```bash
+npx db-bridge generate:types
+```
+
+This generates a file like:
+
+```typescript
+// src/types/database.ts (auto-generated)
+
+/**
+ * Users - users table
+ */
+export interface Users {
+  id: number;
+  name: string;
+  email: string;
+  password: string;
+  created_at: Date;
+  updated_at: Date | null;
+}
+
+/**
+ * Orders - orders table
+ */
+export interface Orders {
+  id: number;
+  user_id: number;
+  total: number;
+  status: string;
+  created_at: Date;
+}
+```
+
+#### Type Generation Options
+
+| Option             | Description                                           |
+| ------------------ | ----------------------------------------------------- |
+| `--output=<path>`  | Output file path (default: `./src/types/database.ts`) |
+| `--tables=<list>`  | Comma-separated list of tables to include             |
+| `--exclude=<list>` | Comma-separated list of tables to exclude             |
+| `--camel-case`     | Use camelCase for property names                      |
+| `--comments`       | Include JSDoc comments (default: true)                |
+
+You can also configure type generation in your config file:
+
+```javascript
+// db-bridge.config.mjs
+export default {
+  connection: {
+    /* ... */
+  },
+  types: {
+    output: './src/types/database.ts',
+    exclude: ['logs', 'sessions'],
+    camelCase: true,
+  },
+};
+```
+
+### Seeder Ordering
+
+Seeders support priority and dependency-based ordering to ensure data is seeded in the correct order:
+
+```typescript
+// src/seeds/users_seeder.ts
+import type { Seeder, DatabaseAdapter } from '@db-bridge/core';
+
+export default {
+  // Lower priority runs first (default: 100)
+  priority: 10,
+
+  async run(adapter: DatabaseAdapter): Promise<void> {
+    await adapter.execute(`
+      INSERT INTO users (name, email) VALUES
+      ('Admin', 'admin@example.com')
+    `);
+  },
+} satisfies Seeder;
+```
+
+```typescript
+// src/seeds/orders_seeder.ts
+import type { Seeder, DatabaseAdapter } from '@db-bridge/core';
+
+export default {
+  // This seeder depends on users being seeded first
+  depends: ['users'],
+
+  async run(adapter: DatabaseAdapter): Promise<void> {
+    await adapter.execute(`
+      INSERT INTO orders (user_id, total) VALUES
+      (1, 99.99)
+    `);
+  },
+} satisfies Seeder;
+```
+
+**Ordering Rules:**
+
+1. Seeders with dependencies run after their dependencies
+2. Within the same dependency level, lower priority runs first
+3. Default priority is 100
+
+### Migration Dry-Run
+
+Preview SQL statements that would be executed without actually running them:
+
+```bash
+npx db-bridge migrate:latest --dry-run
+```
+
+Output:
+
+```
+ℹ Running: 20260118120000_create_users_table
+ℹ DRY RUN: UP 20260118120000_create_users_table
+ℹ SQL statements that would be executed:
+ℹ   CREATE TABLE `users` (
+      `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      `name` VARCHAR(100) NOT NULL,
+      `email` VARCHAR(255) NOT NULL UNIQUE,
+      `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+```
+
+This is useful for:
+
+- Reviewing SQL before executing on production
+- Debugging migration issues
+- Generating SQL scripts for manual execution
 
 ### Migration Example
 

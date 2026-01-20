@@ -199,3 +199,11 @@ export interface Logger {
 
 // ============ Strict Types (Enhanced Type Safety) ============
 export * from './strict-types';
+
+// ============ Type Generation ============
+export {
+  TypeGenerator,
+  type TypeGeneratorOptions,
+  type ColumnInfo,
+  type TableInfo,
+} from './TypeGenerator';

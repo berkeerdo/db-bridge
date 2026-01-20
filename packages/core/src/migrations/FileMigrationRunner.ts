@@ -331,7 +331,27 @@ export class FileMigrationRunner {
     this.options.logger.info(`${action}: ${migration.name}`);
 
     if (this.options.dryRun) {
-      this.options.logger.info(`DRY RUN: Would ${direction} ${migration.name}`);
+      // Create schema builder in collect mode to capture SQL
+      const schema = new SchemaBuilder({
+        dialect: this.options.dialect,
+        collectMode: true,
+      });
+
+      // Run migration to collect SQL
+      await migration[direction](schema);
+
+      const statements = schema.getCollectedStatements();
+      if (statements.length > 0) {
+        this.options.logger.info(`DRY RUN: ${direction.toUpperCase()} ${migration.name}`);
+        this.options.logger.info('SQL statements that would be executed:');
+        for (const sql of statements) {
+          this.options.logger.info(`  ${sql}`);
+        }
+      } else {
+        this.options.logger.info(
+          `DRY RUN: ${direction.toUpperCase()} ${migration.name} (no SQL statements)`,
+        );
+      }
       return;
     }
 
