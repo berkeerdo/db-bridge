@@ -149,11 +149,34 @@ export default {
   },
   migrations: {
     directory: './src/migrations',
+    tableName: 'db_migrations', // Optional: custom table name
+    prefix: 'auth', // Optional: filename prefix (e.g., auth_20250119_xxx.ts)
   },
   seeds: {
     directory: './src/seeds',
+    prefix: 'auth', // Optional: filename prefix (e.g., auth_users_seeder.ts)
   },
 };
+```
+
+#### Migration Prefix (Multi-Service Support)
+
+The `prefix` option is useful for **microservice architectures** where multiple services share the same database. Each service can have its own migration prefix to avoid naming conflicts:
+
+```javascript
+// auth-service/dbbridge.config.ts
+migrations: {
+  directory: './src/migrations',
+  tableName: 'db_migrations_auth',  // Separate migration tracking table
+  prefix: 'auth',                    // Creates: auth_20250119120000_create_users.ts
+}
+
+// order-service/dbbridge.config.ts
+migrations: {
+  directory: './src/migrations',
+  tableName: 'db_migrations_order',
+  prefix: 'order',                   // Creates: order_20250119120000_create_orders.ts
+}
 ```
 
 ### Commands
