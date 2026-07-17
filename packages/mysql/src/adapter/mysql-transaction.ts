@@ -147,7 +147,10 @@ export class MySQLTransaction implements Transaction {
 
       // For INSERT/UPDATE/DELETE, we get ResultSetHeader instead of RowDataPacket[]
       if (command === 'INSERT' || command === 'UPDATE' || command === 'DELETE') {
-        const [result] = await this.connection.execute<mysql.ResultSetHeader>(sql, queryParams);
+        const [result] = await this.connection.execute<mysql.ResultSetHeader>(
+          sql,
+          queryParams as mysql.ExecuteValues,
+        );
         return {
           rows: [] as T[],
           rowCount: result.affectedRows || 0,
@@ -158,7 +161,10 @@ export class MySQLTransaction implements Transaction {
         };
       }
 
-      const [rows, fields] = await this.connection.execute<mysql.RowDataPacket[]>(sql, queryParams);
+      const [rows, fields] = await this.connection.execute<mysql.RowDataPacket[]>(
+        sql,
+        queryParams as mysql.ExecuteValues,
+      );
 
       const result: QueryResult<T> = {
         rows: rows as T[],

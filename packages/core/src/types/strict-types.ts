@@ -133,10 +133,7 @@ export interface DeleteResult extends BaseQueryResult {
  * Discriminated union of all query results
  */
 export type StrictQueryResult<T = unknown> =
-  | SelectResult<T>
-  | InsertResult
-  | UpdateResult
-  | DeleteResult;
+  SelectResult<T> | InsertResult | UpdateResult | DeleteResult;
 
 /**
  * SQL command types
@@ -224,11 +221,7 @@ export type InOperator = 'IN' | 'NOT IN';
 export type BetweenOperator = 'BETWEEN' | 'NOT BETWEEN';
 
 export type WhereOperator =
-  | ComparisonOperator
-  | LikeOperator
-  | NullOperator
-  | InOperator
-  | BetweenOperator;
+  ComparisonOperator | LikeOperator | NullOperator | InOperator | BetweenOperator;
 
 /**
  * Join types

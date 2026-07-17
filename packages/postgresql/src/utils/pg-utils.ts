@@ -116,7 +116,7 @@ export function formatPgArray(values: unknown[]): string {
         return 'NULL';
       }
       if (typeof v === 'string') {
-        return `"${v.replaceAll('"', '\\"')}"`;
+        return `"${v.replaceAll('"', String.raw`\"`)}"`;
       }
       return String(v);
     })

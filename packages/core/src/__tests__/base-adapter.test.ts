@@ -53,7 +53,7 @@ describe('BaseAdapter', () => {
     });
 
     it('should validate connection config', async () => {
-      await expect(adapter.connect({} as ConnectionConfig)).rejects.toThrow('Host is required');
+      await expect(adapter.connect({})).rejects.toThrow('Host is required');
     });
 
     it('should emit connect event', async () => {

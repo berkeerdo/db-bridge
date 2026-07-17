@@ -23,7 +23,11 @@ vi.mock('ioredis', () => {
   };
 
   return {
-    default: vi.fn(() => mockClient),
+    // A function expression is required so the mock can be invoked with `new`
+    // eslint-disable-next-line prefer-arrow-callback
+    default: vi.fn(function () {
+      return mockClient;
+    }),
   };
 });
 

@@ -32,7 +32,7 @@ export async function paginate<T>(
   perPage: number = 15,
   options?: QueryOptions,
 ): Promise<PaginationResult<T>> {
-  const safePage = page < 1 ? 1 : page;
+  const safePage = Math.max(page, 1);
   const safePerPage = perPage < 1 ? 15 : perPage;
 
   // Get total count

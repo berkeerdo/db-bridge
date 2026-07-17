@@ -11,7 +11,7 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
-    'plugin:@typescript-eslint/recommended-requiring-type-checking',
+    'plugin:@typescript-eslint/recommended-type-checked',
     'plugin:@typescript-eslint/strict',
     'plugin:import/recommended',
     'plugin:import/typescript',
@@ -48,6 +48,7 @@ module.exports = {
     '@typescript-eslint/no-unsafe-return': 'off', // any returns are sometimes needed
     '@typescript-eslint/no-unsafe-argument': 'off', // any arguments are sometimes needed
     '@typescript-eslint/no-redundant-type-constituents': 'off', // unknown unions are valid
+    '@typescript-eslint/no-base-to-string': 'off', // Fallback String(value) on dynamic database values is intentional
     '@typescript-eslint/no-non-null-assertion': 'off', // Non-null assertions are common in this codebase
     '@typescript-eslint/prefer-nullish-coalescing': 'off', // || vs ?? is a style preference
     '@typescript-eslint/prefer-optional-chain': 'error',
@@ -69,7 +70,7 @@ module.exports = {
     '@typescript-eslint/naming-convention': 'off', // Too strict for branded types and patterns
     '@typescript-eslint/no-extraneous-class': 'off', // Static utility classes are valid
     '@typescript-eslint/restrict-template-expressions': 'off', // Template expressions with unknown types are common
-    '@typescript-eslint/no-var-requires': 'off', // Dynamic imports are needed
+    '@typescript-eslint/no-require-imports': 'off', // Dynamic imports are needed
     '@typescript-eslint/no-useless-constructor': 'off', // Sometimes needed for documentation or future extension
 
     // Import rules
@@ -97,6 +98,7 @@ module.exports = {
 
     // Unicorn rules
     'unicorn/prevent-abbreviations': 'off', // Too aggressive for our codebase
+    'unicorn/import-style': 'off', // Named imports from node:path are the established style here
     'unicorn/no-null': 'off', // null is valid in our domain
     'unicorn/filename-case': [
       'error',

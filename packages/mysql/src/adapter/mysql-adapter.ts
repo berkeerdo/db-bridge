@@ -147,7 +147,7 @@ export class MySQLAdapter extends BaseAdapter {
       // For INSERT/UPDATE/DELETE, we get ResultSetHeader instead of RowDataPacket[]
       if (command === 'INSERT' || command === 'UPDATE' || command === 'DELETE') {
         const [result] = await executeWithTimeout(() =>
-          connection.execute<mysql.ResultSetHeader>(sql, queryParams),
+          connection.execute<mysql.ResultSetHeader>(sql, queryParams as mysql.ExecuteValues),
         );
         return {
           rows: [] as T[],
@@ -161,7 +161,7 @@ export class MySQLAdapter extends BaseAdapter {
 
       // For SELECT and other queries
       const [rows, fields] = await executeWithTimeout(() =>
-        connection.execute<mysql.RowDataPacket[]>(sql, queryParams),
+        connection.execute<mysql.RowDataPacket[]>(sql, queryParams as mysql.ExecuteValues),
       );
 
       return {
@@ -244,7 +244,7 @@ export class MySQLAdapter extends BaseAdapter {
   }
 
   override escape(value: unknown): string {
-    return mysql.escape(value);
+    return mysql.escape(value as mysql.SqlValue);
   }
 
   override escapeIdentifier(identifier: string): string {

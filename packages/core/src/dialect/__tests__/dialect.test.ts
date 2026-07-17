@@ -82,11 +82,11 @@ describe('MySQLDialect', () => {
 
     it('should escape string with quotes', () => {
       expect(dialect.escapeValue('hello')).toBe("'hello'");
-      expect(dialect.escapeValue("it's")).toBe("'it\\'s'");
+      expect(dialect.escapeValue("it's")).toBe(String.raw`'it\'s'`);
     });
 
     it('should escape string with backslashes', () => {
-      expect(dialect.escapeValue('path\\to\\file')).toBe("'path\\\\to\\\\file'");
+      expect(dialect.escapeValue(String.raw`path\to\file`)).toBe(String.raw`'path\\to\\file'`);
     });
 
     it('should escape Buffer as hex', () => {
@@ -467,7 +467,7 @@ describe('PostgreSQLDialect', () => {
 
     it('should escape Buffer as bytea', () => {
       const buffer = Buffer.from([0xde, 0xad, 0xbe, 0xef]);
-      expect(dialect.escapeValue(buffer)).toBe("'\\xdeadbeef'::bytea");
+      expect(dialect.escapeValue(buffer)).toBe(String.raw`'\xdeadbeef'::bytea`);
     });
 
     it('should escape array as ARRAY literal', () => {

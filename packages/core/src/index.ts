@@ -1,6 +1,6 @@
 export * from './types';
 export * from './constants';
-export * from './interfaces';
+export type * from './interfaces';
 export * from './errors';
 export * from './utils';
 export * from './base-adapter';

@@ -197,7 +197,7 @@ export class PerformanceMonitor extends EventEmitter {
           actualRows: plan.Plan?.['Actual Rows'] || 0,
         };
       } else if (this.adapter.name === 'MySQL') {
-        const plan = typeof result === 'string' ? JSON.parse(result as string) : result;
+        const plan = typeof result === 'string' ? JSON.parse(result) : result;
         const queryBlock = plan.query_block || {};
 
         return {

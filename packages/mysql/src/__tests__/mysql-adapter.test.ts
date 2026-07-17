@@ -48,7 +48,11 @@ describe('MySQLAdapter', () => {
     };
 
     // Configure mock to return our mockPool instance
-    vi.mocked(MySQLConnectionPool).mockImplementation(() => mockPool);
+    // A function expression is required so the mock can be invoked with `new`
+    // eslint-disable-next-line prefer-arrow-callback
+    vi.mocked(MySQLConnectionPool).mockImplementation(function () {
+      return mockPool;
+    });
 
     adapter = new MySQLAdapter();
   });

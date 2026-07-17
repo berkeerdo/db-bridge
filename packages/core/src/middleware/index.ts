@@ -12,7 +12,7 @@
  */
 
 // Types
-export * from './types';
+export type * from './types';
 
 // Chain
 export { MiddlewareChain, composeMiddleware } from './middleware-chain';

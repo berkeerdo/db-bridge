@@ -32,14 +32,14 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "eventemitter3": "^5.0.1"
+    "eventemitter3": "^5.0.4"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@vitest/coverage-v8": "^3.0.0",
-    "tsup": "^8.0.1",
-    "typescript": "^5.3.0",
-    "vitest": "^3.0.0"
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "tsup": "^8.5.1",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
   },
   "publishConfig": {
     "access": "public"

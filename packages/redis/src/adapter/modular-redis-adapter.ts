@@ -75,7 +75,7 @@ export class ModularRedisAdapter extends CounterOperationsTrait implements Cache
 
       return json;
     } catch (error) {
-      this.logger?.error('Serialization error', error as Error);
+      this.logger?.error('Serialization error', error);
       throw error;
     }
   }
@@ -88,7 +88,7 @@ export class ModularRedisAdapter extends CounterOperationsTrait implements Cache
 
       return super.deserialize<T>(value);
     } catch (error) {
-      this.logger?.error('Deserialization error', error as Error);
+      this.logger?.error('Deserialization error', error);
       throw error;
     }
   }

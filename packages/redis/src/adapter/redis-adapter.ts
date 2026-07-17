@@ -48,7 +48,7 @@ export class RedisAdapter extends EventEmitter implements CacheAdapter {
         maxRetries: options.retryOptions?.maxRetries ?? 3,
         retryDelay: options.retryOptions?.retryDelay ?? 1000,
       },
-    } as any;
+    };
   }
 
   async connect(config?: RedisOptions): Promise<void> {

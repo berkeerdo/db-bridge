@@ -61,7 +61,7 @@ export class MySQLDialect extends SQLDialect {
 
     if (typeof value === 'string') {
       // Escape single quotes and backslashes
-      return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
+      return `'${value.replaceAll('\\', '\\\\').replaceAll("'", String.raw`\'`)}'`;
     }
 
     if (Buffer.isBuffer(value)) {
@@ -69,7 +69,7 @@ export class MySQLDialect extends SQLDialect {
     }
 
     // Arrays and objects - serialize as JSON
-    return `'${JSON.stringify(value).replaceAll("'", "\\'")}'`;
+    return `'${JSON.stringify(value).replaceAll("'", String.raw`\'`)}'`;
   }
 
   /**

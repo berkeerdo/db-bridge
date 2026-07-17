@@ -92,12 +92,12 @@ export function escapeMySQL(value: unknown): string {
   // String escaping
   return `'${String(value)
     .replaceAll('\\', '\\\\')
-    .replaceAll("'", "\\'")
-    .replaceAll('"', '\\"')
-    .replaceAll('\n', '\\n')
-    .replaceAll('\r', '\\r')
-    .replaceAll('\0', '\\0')
-    .replaceAll('', '\\Z')}'`;
+    .replaceAll("'", String.raw`\'`)
+    .replaceAll('"', String.raw`\"`)
+    .replaceAll('\n', String.raw`\n`)
+    .replaceAll('\r', String.raw`\r`)
+    .replaceAll('\0', String.raw`\0`)
+    .replaceAll('', String.raw`\Z`)}'`;
 }
 
 export function formatMySQLDateTime(date: Date): string {

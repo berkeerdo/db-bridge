@@ -7,9 +7,6 @@
       "message": "chore(release): publish",
       "registry": "https://registry.npmjs.org",
       "allowBranch": ["main", "master"]
-    },
-    "bootstrap": {
-      "hoist": true
     }
   },
   "packages": ["packages/*"]

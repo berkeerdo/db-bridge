@@ -23,7 +23,7 @@ export class MySQLPreparedStatement<T = unknown> implements PreparedStatement<T>
       if (command === 'INSERT' || command === 'UPDATE' || command === 'DELETE') {
         const [result] = await this.connection.execute<mysql.ResultSetHeader>(
           this.sql,
-          params || [],
+          (params || []) as mysql.ExecuteValues,
         );
         return {
           rows: [] as T[],
@@ -37,7 +37,7 @@ export class MySQLPreparedStatement<T = unknown> implements PreparedStatement<T>
 
       const [rows, fields] = await this.connection.execute<mysql.RowDataPacket[]>(
         this.sql,
-        params || [],
+        (params || []) as mysql.ExecuteValues,
       );
 
       return {

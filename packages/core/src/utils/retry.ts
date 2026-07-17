@@ -45,7 +45,7 @@ export async function retry<T>(
     }
   }
 
-  throw lastError;
+  throw lastError ?? new Error('Retry failed without capturing an error');
 }
 
 export async function withTimeout<T>(
