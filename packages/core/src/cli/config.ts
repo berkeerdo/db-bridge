@@ -68,6 +68,7 @@ const CONFIG_FILES = [
   'db-bridge.config.mjs',
   'dbbridge.config.ts',
   'dbbridge.config.js',
+  'dbbridge.config.mjs',
 ];
 
 /**

@@ -3,7 +3,11 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "tsBuildInfoFile": ".tsbuildinfo"
+    "paths": {
+      "@db-bridge/mysql": ["./src/types/adapter-modules.d.ts"],
+      "@db-bridge/postgresql": ["./src/types/adapter-modules.d.ts"],
+      "@db-bridge/redis": ["./src/types/adapter-modules.d.ts"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "dist/**/*"]
