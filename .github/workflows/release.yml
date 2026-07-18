@@ -24,12 +24,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # No registry-url: it writes an .npmrc expecting NODE_AUTH_TOKEN, whose
+      # placeholder value shadows OIDC and causes 403. OIDC needs no token.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
 
       # OIDC trusted publishing requires npm >= 11.5.1
       - name: Upgrade npm for OIDC
