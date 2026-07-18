@@ -42,7 +42,15 @@ jobs:
       - name: Build all packages
         run: npm run build
 
-      # No NODE_AUTH_TOKEN: npm exchanges the GitHub OIDC id-token for a
-      # short-lived publish credential via the package Trusted Publisher config
+      # Publish each package with npm directly (npm's native OIDC path is the
+      # reference implementation; lerna 9's OIDC exchange is unreliable).
+      # --ignore-scripts: dist is already built above; avoids prepublishOnly
+      # re-cleaning it. Order: core first (others depend on it at install time).
       - name: Publish packages (OIDC, tokenless)
-        run: npx lerna publish from-package --yes --no-verify-access
+        run: |
+          set -e
+          for pkg in core mysql postgresql redis db-bridge; do
+            echo "::group::publish packages/$pkg"
+            (cd "packages/$pkg" && npm publish --access public --ignore-scripts)
+            echo "::endgroup::"
+          done
