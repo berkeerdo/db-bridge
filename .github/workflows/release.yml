@@ -1,12 +1,9 @@
 name: Release
 
 on:
+  # Manual-only for now: auto tag-triggering was firing failed OIDC runs.
+  # Re-enable tag triggers once trusted publishing is confirmed working.
   workflow_dispatch:
-  push:
-    tags:
-      # lerna independent tags (e.g. @db-bridge/core@1.2.1) and umbrella v-tags
-      - '*@*'
-      - 'v*'
 
 permissions:
   contents: write
@@ -49,8 +46,13 @@ jobs:
       - name: Publish packages (OIDC, tokenless)
         run: |
           set -e
+          echo "npm version: $(npm --version)"
           for pkg in core mysql postgresql redis db-bridge; do
             echo "::group::publish packages/$pkg"
-            (cd "packages/$pkg" && npm publish --access public --ignore-scripts)
+            (cd "packages/$pkg" && npm publish --access public --ignore-scripts --loglevel verbose) || {
+              echo "=== npm debug log (server response) ==="
+              cat "$HOME"/.npm/_logs/*-debug-0.log | tail -60
+              exit 1
+            }
             echo "::endgroup::"
           done
