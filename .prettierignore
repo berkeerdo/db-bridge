@@ -1,0 +1,6 @@
+dist
+coverage
+node_modules
+# Lockfiles are managed by npm; formatting them breaks npm ci sync
+package-lock.json
+**/package-lock.json
