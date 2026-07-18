@@ -274,9 +274,7 @@ You can also configure type generation in your config file:
 ```javascript
 // db-bridge.config.mjs
 export default {
-  connection: {
-    /* ... */
-  },
+  connection: {/* ... */},
   types: {
     output: './src/types/database.ts',
     exclude: ['logs', 'sessions'],
