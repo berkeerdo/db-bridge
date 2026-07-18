@@ -251,6 +251,9 @@ jobs:
           name: dist
           path: packages
 
+      - name: Install integration test runner
+        run: cd tests/integration && npm install --no-package-lock --no-audit --no-fund
+
       - name: Run integration tests
         run: npm run test:integration --if-present
         env:

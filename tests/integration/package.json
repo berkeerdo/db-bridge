@@ -1,5 +1,12 @@
 {
   "name": "@db-bridge/integration-tests",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
+    "vitest": "^4.1.10"
+  }
 }
