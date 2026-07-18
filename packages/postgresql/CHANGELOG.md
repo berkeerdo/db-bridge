@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.1](https://github.com/berkeerdo/db-bridge/compare/@db-bridge/postgresql@1.2.0...@db-bridge/postgresql@1.2.1) (2026-07-18)
+
+### Bug Fixes
+
+- **core:** support .mjs config and fix flaky dts build ([9666430](https://github.com/berkeerdo/db-bridge/commit/9666430b89f8422431cd9a6d598fa3867bb215aa))
+
 # 1.2.0 (2026-01-20)
 
 ## 1.1.7 (2026-01-18)
