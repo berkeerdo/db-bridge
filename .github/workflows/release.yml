@@ -47,11 +47,12 @@ jobs:
         run: |
           set -e
           echo "npm version: $(npm --version)"
+          echo "registry: $(npm config get registry)"
           for pkg in core mysql postgresql redis db-bridge; do
             echo "::group::publish packages/$pkg"
-            (cd "packages/$pkg" && npm publish --access public --ignore-scripts --loglevel verbose) || {
-              echo "=== npm debug log (server response) ==="
-              cat "$HOME"/.npm/_logs/*-debug-0.log | tail -60
+            (cd "packages/$pkg" && npm publish --access public --ignore-scripts --loglevel=silly --timing) || {
+              echo "=== full npm debug log (silly) for npm support ==="
+              cat "$HOME"/.npm/_logs/*-debug-0.log
               exit 1
             }
             echo "::endgroup::"
